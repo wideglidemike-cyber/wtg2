@@ -116,7 +116,8 @@ class WTG_Admin_Bookings {
 		if ( $search ) {
 			$search_like = '%' . $wpdb->esc_like( $search ) . '%';
 			$where_clauses[] = $wpdb->prepare(
-				'(customer_name LIKE %s OR customer_email LIKE %s OR customer_phone LIKE %s OR booking_code LIKE %s)',
+				'(first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR phone LIKE %s OR booking_code LIKE %s)',
+				$search_like,
 				$search_like,
 				$search_like,
 				$search_like,
@@ -225,9 +226,9 @@ class WTG_Admin_Bookings {
 									<td><?php echo esc_html( date( 'M j, Y', strtotime( $booking['tour_date'] ?? 'now' ) ) ); ?></td>
 									<td><?php echo esc_html( WTG_Availability_Controller::get_slot_label( $booking['time_slot'] ?? '' ) ); ?></td>
 									<td>
-										<?php echo esc_html( $booking['customer_name'] ?? '' ); ?><br>
+										<?php echo esc_html( trim( ( $booking['first_name'] ?? '' ) . ' ' . ( $booking['last_name'] ?? '' ) ) ); ?><br>
 										<small class="wtg-text-muted">
-											<?php echo esc_html( $booking['customer_email'] ?? '' ); ?>
+											<?php echo esc_html( $booking['email'] ?? '' ); ?>
 										</small>
 									</td>
 									<td><?php echo esc_html( $booking['tickets'] ?? 0 ); ?></td>

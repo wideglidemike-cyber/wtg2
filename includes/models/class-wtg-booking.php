@@ -344,23 +344,28 @@ class WTG_Booking {
 	}
 
 	/**
-	 * Get bookings pending invoice send.
+	 * Get bookings with draft invoices ready to be published (sent).
+	 *
+	 * Finds bookings where a draft invoice exists in Square but hasn't been
+	 * published yet, and the tour is within the specified hours.
 	 *
 	 * @param int $hours_before Hours before tour date to send invoice.
-	 * @return array Array of booking objects.
+	 * @return array Array of booking arrays.
 	 */
-	public static function get_pending_invoices( $hours_before = 48 ) {
+	public static function get_pending_invoices( $hours_before = 72 ) {
 		global $wpdb;
 
 		return $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM " . self::get_table_name() . "
-				WHERE invoice_sent_at IS NULL
+				WHERE balance_square_id IS NOT NULL
+				AND invoice_sent_at IS NULL
 				AND payment_status = 'deposit_paid'
-				AND tour_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL %d HOUR)
+				AND tour_date BETWEEN CURDATE() AND DATE_ADD(NOW(), INTERVAL %d HOUR)
 				ORDER BY tour_date ASC",
 				$hours_before
-			)
+			),
+			ARRAY_A
 		);
 	}
 

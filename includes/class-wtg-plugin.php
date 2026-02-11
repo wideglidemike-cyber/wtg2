@@ -167,58 +167,49 @@ class WTG_Plugin {
 	/**
 	 * Process pending invoices (cron callback).
 	 *
-	 * Runs hourly to check for bookings that need invoices sent.
-	 * Creates and sends balance invoices 48 hours before tour date.
+	 * Runs hourly. Publishes draft balance invoices 72 hours before tour date.
+	 * Draft invoices are created at booking time in Gravity Forms integration.
 	 */
 	public function process_pending_invoices() {
 		// Get hours before tour to send invoice.
-		$hours_before = get_option( 'wtg_invoice_hours_before', 48 );
+		$hours_before = get_option( 'wtg_invoice_hours_before', 72 );
 
-		// Get bookings pending invoice send.
+		// Get bookings with draft invoices ready to publish.
 		$bookings = WTG_Booking::get_pending_invoices( $hours_before );
 
 		if ( empty( $bookings ) ) {
 			return;
 		}
 
-		error_log( sprintf( 'WTG2: Processing %d pending invoice(s).', count( $bookings ) ) );
+		error_log( sprintf( 'WTG2: Publishing %d pending invoice(s).', count( $bookings ) ) );
 
-		// Process each booking.
 		foreach ( $bookings as $booking ) {
-			// Skip if balance invoice already created.
-			if ( ! empty( $booking['balance_square_id'] ) ) {
-				continue;
-			}
+			$invoice_id = $booking['balance_square_id'];
 
-			// Skip if balance is zero (gift cert covered everything).
-			if ( floatval( $booking['balance_due'] ) <= 0 ) {
-				error_log( sprintf( 'WTG2: Skipping balance invoice for booking %d — balance is $0.', $booking['id'] ) );
-				continue;
-			}
+			// Publish the draft invoice — sends email to customer via Square.
+			$publish_result = WTG_Square_Invoice::publish_invoice( $invoice_id, $booking['id'] );
 
-			// Create balance invoice via Square.
-			$invoice_result = WTG_Square_Invoice::create_balance_invoice( $booking['id'], $booking );
-
-			if ( $invoice_result['success'] ) {
-				// Update booking with Square invoice ID.
+			if ( $publish_result['success'] ) {
+				// Mark invoice as sent.
 				WTG_Booking::update(
 					$booking['id'],
-					array( 'balance_square_id' => $invoice_result['invoice_id'] )
+					array( 'invoice_sent_at' => current_time( 'mysql' ) )
 				);
 
-				// Send balance invoice email to customer.
-				WTG_Email_Templates::send_balance_invoice( $booking, $invoice_result['invoice_url'] );
+				// Send our own balance invoice notification email.
+				WTG_Email_Templates::send_balance_invoice( $booking, $publish_result['invoice_url'] );
 
 				error_log( sprintf(
-					'WTG2: Balance invoice %s created and sent for booking %d',
-					$invoice_result['invoice_id'],
+					'WTG2: Balance invoice %s published for booking %d',
+					$invoice_id,
 					$booking['id']
 				) );
 			} else {
 				error_log( sprintf(
-					'WTG2: Failed to create balance invoice for booking %d: %s',
+					'WTG2: Failed to publish invoice %s for booking %d: %s',
+					$invoice_id,
 					$booking['id'],
-					$invoice_result['error']
+					$publish_result['error']
 				) );
 			}
 		}

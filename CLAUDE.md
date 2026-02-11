@@ -21,10 +21,13 @@ WordPress plugin for **winetoursgrapevine.com** — a wine tour booking and gift
 - Same cascade: Friday 11am must be "made" before Friday 5pm opens
 
 ### Pricing & Payments
-- **$35 deposit** per ticket collected at booking (via Gravity Forms + Square)
-- **$130 balance** per ticket collected via Square invoice sent **48 hours before tour**
-- **Texas sales tax (8.25%)** on the full $165 is collected on the balance invoice
-- Total per ticket: $165 + tax on balance
+- **$165 total** per ticket
+- **$35 deposit** per ticket collected at booking (via Gravity Forms + Square payment add-on)
+- **$130 balance** per ticket collected via Square invoice sent **72 hours before tour**
+- **Texas sales tax (8.25%)** calculated on the **full $165/ticket** price, collected entirely on the balance invoice (not on the deposit)
+- Balance invoice formula: `(tickets × $130) + (tickets × $165 × 8.25%)` = balance + tax
+- Example (2 tickets): $260 balance + $27.23 tax = **$287.23** invoice
+- DB field `balance_due` stores `tickets × $130` minus any gift certificate discount (tax is NOT included in this field)
 
 ### Gift Certificates
 - Purchased via a separate Gravity Forms form

@@ -25,8 +25,8 @@
 			$('#deposit_amount').val(deposit);
 		});
 
-		// Validate form before submission.
-		$('form').on('submit', function(e) {
+		// Validate booking edit form before submission (not search/filter forms).
+		$('form:has(input[name="wtg_save_booking"])').on('submit', function(e) {
 			const tourDate = $('#tour_date').val();
 			const timeSlot = $('#time_slot').val();
 			const customerName = $('#customer_name').val();

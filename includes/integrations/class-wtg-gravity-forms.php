@@ -274,9 +274,8 @@ class WTG_Gravity_Forms {
 		$deposit_amount   = $deposit_per_ticket * $tickets;
 		$balance_pretax   = $balance_per_ticket * $tickets;
 		$tax_amount       = round( $total_per_ticket * $tickets * $tax_rate, 2 );
-		$balance_with_tax = $balance_pretax + $tax_amount;
-		$total_amount     = $deposit_amount + $balance_with_tax;
-		$balance_due      = $balance_with_tax;
+		$total_amount     = $deposit_amount + $balance_pretax + $tax_amount;
+		$balance_due      = $balance_pretax; // Pre-tax only; tax is added separately on the invoice.
 		$discount_applied = 0.00;
 		$gift_cert_id     = null;
 
@@ -287,13 +286,13 @@ class WTG_Gravity_Forms {
 				$gift_cert_id     = $gift_cert->id;
 				$discount_applied = floatval( $gift_cert->amount );
 
-				// Apply cert to deposit first, remainder to balance + tax.
+				// Apply cert to deposit first, remainder to pre-tax balance.
 				$deposit_discount = min( $discount_applied, $deposit_amount );
 				$remaining_credit = $discount_applied - $deposit_discount;
-				$balance_discount = min( $remaining_credit, $balance_with_tax );
+				$balance_discount = min( $remaining_credit, $balance_pretax );
 
 				$deposit_amount = $deposit_amount - $deposit_discount;
-				$balance_due    = max( 0, $balance_with_tax - $balance_discount );
+				$balance_due    = max( 0, $balance_pretax - $balance_discount );
 
 				// Prevent rounding dust (sub-cent) from creating a balance.
 				if ( $deposit_amount < 0.01 ) {
@@ -303,7 +302,7 @@ class WTG_Gravity_Forms {
 					$balance_due = 0.00;
 				}
 
-				$total_amount = $deposit_amount + $balance_due;
+				$total_amount = $deposit_amount + $balance_due + $tax_amount;
 			}
 		}
 
@@ -353,41 +352,30 @@ class WTG_Gravity_Forms {
 				error_log( sprintf( 'WTG2: Booking %d created for entry %d', $booking_id, $entry['id'] ) );
 			}
 
-			// Create deposit invoice via Square (only if deposit > 0).
+			// Deposit is collected directly via Gravity Forms Square add-on — no separate invoice needed.
+			// Create draft balance invoice in Square (will be published/sent by cron 72hrs before tour).
 			$booking = WTG_Booking::get_by_id( $booking_id );
-			if ( $booking && $deposit_amount > 0 ) {
-				$invoice_result = WTG_Square_Invoice::create_deposit_invoice( $booking_id, $booking );
+			if ( $booking ) {
+				$invoice_result = WTG_Square_Invoice::create_balance_invoice( $booking_id, $booking );
 
 				if ( $invoice_result['success'] ) {
-					// Update booking with Square invoice ID.
 					WTG_Booking::update(
 						$booking_id,
-						array( 'deposit_square_id' => $invoice_result['invoice_id'] )
+						array( 'balance_square_id' => $invoice_result['invoice_id'] )
 					);
 
 					error_log( sprintf(
-						'WTG2: Deposit invoice %s created for booking %d',
+						'WTG2: Draft balance invoice %s created for booking %d',
 						$invoice_result['invoice_id'],
 						$booking_id
 					) );
-
-					// If deposit is already paid (via GF payment), send confirmation.
-					if ( 'deposit_paid' === $payment_status ) {
-						WTG_Email_Templates::send_deposit_confirmation( $booking );
-					}
 				} else {
 					error_log( sprintf(
-						'WTG2: Failed to create deposit invoice for booking %d: %s',
+						'WTG2: Failed to create draft invoice for booking %d: %s',
 						$booking_id,
 						$invoice_result['error']
 					) );
 				}
-			} elseif ( $booking && $deposit_amount <= 0 ) {
-				// Gift cert covered the deposit — no Square charge needed.
-				error_log( sprintf(
-					'WTG2: Skipping deposit invoice for booking %d — gift cert covered deposit.',
-					$booking_id
-				) );
 
 				// Send confirmation email.
 				if ( 'paid_full' === $payment_status ) {
