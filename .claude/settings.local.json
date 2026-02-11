@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(wp plugin list:*)",
+      "Bash(php -l:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(cd:*)",
+      "Bash(wp plugin deactivate:*)",
+      "Bash(wp plugin activate:*)",
+      "Bash(test:*)",
+      "Bash(composer install:*)",
+      "Bash(\"c:/Users/mike/AppData/Roaming/Local/lightning-services/php-8.2.27+1/bin/win64/php.exe\" composer.phar:*)",
+      "Bash(\"c:/Users/mike/AppData/Roaming/Local/lightning-services/php-8.2.27+1/bin/win64/php.exe\" composer.phar install:*)",
+      "Bash(rm:*)",
+      "Bash(powershell -Command \"Add-Type -Assembly System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::OpenRead\\(''wtg2.zip''\\).Entries | Select-Object -First 5 FullName\")"
+    ]
+  }
+}

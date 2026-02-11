@@ -1,0 +1,341 @@
+/**
+ * WTG2 Frontend Styles
+ *
+ * Styles for custom date picker and seating grid.
+ *
+ * @package WTG2
+ */
+
+/* ========================================
+   Date Picker Dropdown
+   ======================================== */
+
+.wtg-date-picker {
+	width: 100%;
+	padding: 10px 15px;
+	font-size: 16px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	background-color: #fff;
+	color: #333;
+	cursor: pointer;
+	transition: border-color 0.3s ease;
+}
+
+.wtg-date-picker:hover {
+	border-color: #999;
+}
+
+.wtg-date-picker:focus {
+	border-color: #5b9dd9;
+	outline: none;
+	box-shadow: 0 0 5px rgba(91, 157, 217, 0.5);
+}
+
+/* ========================================
+   Seating Grid
+   ======================================== */
+
+.wtg-seating-grid {
+	margin: 20px 0;
+	padding: 20px;
+	background-color: #f9f9f9;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+}
+
+.wtg-grid-header {
+	margin-bottom: 20px;
+}
+
+.wtg-grid-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+	padding: 12px;
+	background-color: #fff;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
+
+.wtg-legend-item {
+	display: inline-flex;
+	align-items: center;
+}
+
+.wtg-seating-grid .wtg-grid-table {
+	overflow-x: auto !important;
+	margin-bottom: 15px !important;
+}
+
+.wtg-seating-grid .wtg-grid-table table {
+	width: 100% !important;
+	border-collapse: collapse !important;
+	background-color: #fff !important;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.wtg-seating-grid .wtg-grid-table thead {
+	background-color: #2c3e50 !important;
+	color: #fff !important;
+}
+
+.wtg-seating-grid .wtg-grid-table th,
+.wtg-seating-grid .wtg-grid-table td {
+	padding: 12px 15px !important;
+	text-align: left !important;
+	border: 1px solid #ddd !important;
+}
+
+.wtg-seating-grid .wtg-grid-table th {
+	font-weight: 600 !important;
+	font-size: 14px !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.5px !important;
+	color: #fff !important;
+}
+
+.wtg-col-weekend {
+	min-width: 150px;
+	font-weight: 600;
+}
+
+.wtg-col-slot {
+	min-width: 180px;
+	text-align: center;
+}
+
+/* ========================================
+   Slot Status Colors
+   ======================================== */
+
+.wtg-seating-grid .wtg-slot-available {
+	background-color: #e8f5e9 !important;
+}
+
+.wtg-seating-grid .wtg-slot-low {
+	background-color: #fff9c4 !important;
+}
+
+.wtg-seating-grid .wtg-slot-locked {
+	background-color: #f5f5f5 !important;
+}
+
+.wtg-seating-grid .wtg-slot-sold-out {
+	background-color: #ffebee !important;
+}
+
+/* ========================================
+   Badges
+   ======================================== */
+
+div.wtg-seating-grid span.wtg-badge,
+#wtg-seating-grid-container .wtg-seating-grid .wtg-badge {
+	display: inline-block !important;
+	padding: 4px 10px !important;
+	font-size: 11px !important;
+	font-weight: 700 !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.5px !important;
+	border-radius: 3px !important;
+	white-space: nowrap !important;
+	margin: 2px 0 !important;
+	box-sizing: border-box !important;
+}
+
+div.wtg-seating-grid span.wtg-badge.wtg-badge-available,
+#wtg-seating-grid-container .wtg-seating-grid .wtg-badge-available {
+	background-color: #4caf50 !important;
+	color: #fff !important;
+}
+
+div.wtg-seating-grid span.wtg-badge.wtg-badge-low,
+#wtg-seating-grid-container .wtg-seating-grid .wtg-badge-low {
+	background-color: #ff9800 !important;
+	color: #fff !important;
+}
+
+div.wtg-seating-grid span.wtg-badge.wtg-badge-locked,
+#wtg-seating-grid-container .wtg-seating-grid .wtg-badge-locked {
+	background-color: #9e9e9e !important;
+	color: #fff !important;
+}
+
+div.wtg-seating-grid span.wtg-badge.wtg-badge-sold-out,
+#wtg-seating-grid-container .wtg-seating-grid .wtg-badge-sold-out {
+	background-color: #f44336 !important;
+	color: #fff !important;
+}
+
+/* ========================================
+   Slot Information
+   ======================================== */
+
+.wtg-slot-info {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: center;
+}
+
+.wtg-seat-count {
+	font-size: 13px;
+	color: #555;
+	font-weight: 500;
+}
+
+.wtg-booking-status {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	font-size: 12px;
+	margin-top: 5px;
+}
+
+.wtg-confirmed {
+	color: #2e7d32;
+	font-weight: 500;
+}
+
+.wtg-pending {
+	color: #f57c00;
+	font-weight: 500;
+}
+
+.wtg-slot-reason {
+	margin-top: 5px;
+	font-style: italic;
+	color: #666;
+}
+
+.wtg-slot-reason small {
+	font-size: 11px;
+}
+
+/* ========================================
+   Grid Footer
+   ======================================== */
+
+.wtg-grid-footer {
+	margin-top: 15px;
+	padding: 12px;
+	background-color: #fff;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
+
+.wtg-grid-note {
+	margin: 0;
+	font-size: 13px;
+	color: #555;
+	line-height: 1.6;
+}
+
+.wtg-grid-note strong {
+	color: #333;
+}
+
+/* ========================================
+   Loading States
+   ======================================== */
+
+.wtg-checking-availability .wtg-grid-table {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.wtg-spinner {
+	display: inline-block;
+	margin: 10px 0;
+	padding: 10px 15px;
+	background-color: #f0f0f0;
+	border-radius: 4px;
+	font-size: 14px;
+	color: #666;
+}
+
+.wtg-spinner::before {
+	content: "";
+	display: inline-block;
+	width: 14px;
+	height: 14px;
+	margin-right: 8px;
+	border: 2px solid #ccc;
+	border-top-color: #666;
+	border-radius: 50%;
+	animation: wtg-spin 0.8s linear infinite;
+	vertical-align: middle;
+}
+
+@keyframes wtg-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+
+@media screen and (max-width: 768px) {
+	.wtg-grid-table {
+		font-size: 12px;
+	}
+
+	.wtg-grid-table th,
+	.wtg-grid-table td {
+		padding: 8px 10px;
+	}
+
+	.wtg-col-weekend {
+		min-width: 120px;
+	}
+
+	.wtg-col-slot {
+		min-width: 140px;
+	}
+
+	.wtg-badge {
+		font-size: 10px;
+		padding: 3px 8px;
+	}
+
+	.wtg-grid-legend {
+		gap: 8px;
+	}
+}
+
+@media screen and (max-width: 480px) {
+	.wtg-seating-grid {
+		padding: 10px;
+	}
+
+	.wtg-grid-table {
+		font-size: 11px;
+	}
+
+	.wtg-grid-table th,
+	.wtg-grid-table td {
+		padding: 6px 8px;
+	}
+
+	.wtg-grid-legend {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}
+
+/* ========================================
+   Grid Wrapper in Form
+   ======================================== */
+
+.wtg-grid-wrapper {
+	margin-top: 20px;
+	margin-bottom: 20px;
+}
+
+/* Hide grid initially until populated by JS */
+.wtg-grid-wrapper:empty {
+	display: none;
+}

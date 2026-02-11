@@ -1,0 +1,437 @@
+/**
+ * WTG2 Admin Styles
+ *
+ * Admin interface styling for Wine Tours plugin.
+ *
+ * @package WTG2
+ */
+
+/* ========================================
+   General Admin Styles
+   ======================================== */
+
+.wtg-admin-page {
+	max-width: 1400px;
+}
+
+/* ========================================
+   Dashboard Widgets
+   ======================================== */
+
+.wtg-dashboard-widgets {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: 20px;
+	margin-top: 20px;
+}
+
+.wtg-widget {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.wtg-widget h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 18px;
+	font-weight: 600;
+	border-bottom: 1px solid #dcdcde;
+	padding-bottom: 10px;
+}
+
+.wtg-metric {
+	margin-bottom: 15px;
+}
+
+.wtg-metric-label {
+	display: block;
+	font-size: 13px;
+	color: #646970;
+	margin-bottom: 5px;
+}
+
+.wtg-metric-value {
+	display: block;
+	font-size: 24px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.wtg-metric-value.success {
+	color: #00a32a;
+}
+
+.wtg-metric-value.warning {
+	color: #dba617;
+}
+
+.wtg-metric-value.danger {
+	color: #d63638;
+}
+
+/* ========================================
+   Status Badges
+   ======================================== */
+
+.wtg-status-badge {
+	display: inline-block;
+	padding: 3px 8px;
+	font-size: 12px;
+	font-weight: 600;
+	border-radius: 3px;
+	text-transform: uppercase;
+}
+
+.wtg-status-badge.pending {
+	background-color: #fcf9e8;
+	color: #8a6d3b;
+	border: 1px solid #faebcc;
+}
+
+.wtg-status-badge.deposit_paid {
+	background-color: #d9edf7;
+	color: #31708f;
+	border: 1px solid #bce8f1;
+}
+
+.wtg-status-badge.paid_full {
+	background-color: #dff0d8;
+	color: #3c763d;
+	border: 1px solid #d6e9c6;
+}
+
+.wtg-status-badge.refunded {
+	background-color: #f2dede;
+	color: #a94442;
+	border: 1px solid #ebccd1;
+}
+
+.wtg-status-badge.active {
+	background-color: #dff0d8;
+	color: #3c763d;
+	border: 1px solid #d6e9c6;
+}
+
+.wtg-status-badge.redeemed {
+	background-color: #d9edf7;
+	color: #31708f;
+	border: 1px solid #bce8f1;
+}
+
+.wtg-status-badge.expired,
+.wtg-status-badge.cancelled {
+	background-color: #f2dede;
+	color: #a94442;
+	border: 1px solid #ebccd1;
+}
+
+/* ========================================
+   Data Tables
+   ======================================== */
+
+.wtg-table-wrapper {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	margin-top: 20px;
+}
+
+.wtg-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.wtg-table th {
+	background-color: #f6f7f7;
+	text-align: left;
+	padding: 12px;
+	font-weight: 600;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+.wtg-table td {
+	padding: 12px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.wtg-table tr:last-child td {
+	border-bottom: none;
+}
+
+.wtg-table tbody tr:hover {
+	background-color: #f6f7f7;
+}
+
+/* Row actions */
+.wtg-row-actions {
+	opacity: 1;
+}
+
+.wtg-row-actions a {
+	color: #2271b1;
+	text-decoration: none;
+	margin-right: 10px;
+}
+
+.wtg-row-actions a:hover {
+	color: #135e96;
+}
+
+.wtg-row-actions a.delete {
+	color: #d63638;
+}
+
+.wtg-row-actions a.delete:hover {
+	color: #a00;
+}
+
+/* ========================================
+   Calendar View
+   ======================================== */
+
+.wtg-calendar-wrapper {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px;
+	margin-top: 20px;
+}
+
+.wtg-calendar-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.wtg-calendar-header h3 {
+	margin: 0;
+	font-size: 18px;
+}
+
+.wtg-calendar-nav button {
+	margin: 0 5px;
+}
+
+.wtg-calendar {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.wtg-calendar th {
+	background-color: #f6f7f7;
+	padding: 10px;
+	font-weight: 600;
+	border: 1px solid #c3c4c7;
+}
+
+.wtg-calendar td {
+	border: 1px solid #dcdcde;
+	padding: 5px;
+	vertical-align: top;
+	height: 100px;
+}
+
+.wtg-calendar td.other-month {
+	background-color: #f6f7f7;
+	opacity: 0.5;
+}
+
+.wtg-calendar-date {
+	font-weight: 600;
+	margin-bottom: 5px;
+}
+
+.wtg-calendar-slots {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 3px;
+}
+
+.wtg-calendar-slot {
+	font-size: 11px;
+	padding: 3px;
+	border-radius: 2px;
+	text-align: center;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+
+.wtg-calendar-slot.available {
+	background-color: #d4edda;
+	color: #155724;
+	border-color: #c3e6cb;
+}
+
+.wtg-calendar-slot.made {
+	background-color: #d1ecf1;
+	color: #0c5460;
+	border-color: #bee5eb;
+}
+
+.wtg-calendar-slot.naturally-full {
+	background-color: #fff3cd;
+	color: #856404;
+	border-color: #ffeeba;
+}
+
+.wtg-calendar-slot.manually-full {
+	background-color: #f8d7da;
+	color: #721c24;
+	border-color: #f5c6cb;
+}
+
+.wtg-calendar-slot:hover {
+	opacity: 0.8;
+}
+
+.wtg-calendar-slot.locked {
+	background-color: #e9ecef;
+	color: #6c757d;
+	cursor: not-allowed;
+}
+
+/* ========================================
+   Forms
+   ======================================== */
+
+.wtg-form-table {
+	width: 100%;
+	max-width: 800px;
+}
+
+.wtg-form-table th {
+	width: 200px;
+	text-align: left;
+	padding: 15px 10px 15px 0;
+	vertical-align: top;
+	font-weight: 600;
+}
+
+.wtg-form-table td {
+	padding: 15px 10px;
+}
+
+.wtg-form-table input[type="text"],
+.wtg-form-table input[type="email"],
+.wtg-form-table input[type="tel"],
+.wtg-form-table input[type="number"],
+.wtg-form-table input[type="date"],
+.wtg-form-table select,
+.wtg-form-table textarea {
+	width: 100%;
+	max-width: 500px;
+}
+
+.wtg-form-table textarea {
+	height: 100px;
+}
+
+.wtg-form-help {
+	display: block;
+	font-size: 13px;
+	color: #646970;
+	margin-top: 5px;
+}
+
+/* ========================================
+   Pagination
+   ======================================== */
+
+.wtg-pagination {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 15px;
+	background: #f6f7f7;
+	border-top: 1px solid #c3c4c7;
+}
+
+.wtg-pagination-info {
+	font-size: 13px;
+	color: #646970;
+}
+
+.wtg-pagination-links a,
+.wtg-pagination-links span {
+	display: inline-block;
+	padding: 5px 10px;
+	margin: 0 2px;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	text-decoration: none;
+	color: #2271b1;
+}
+
+.wtg-pagination-links span.current {
+	background: #2271b1;
+	color: #fff;
+	border-color: #2271b1;
+}
+
+.wtg-pagination-links a:hover {
+	background: #f6f7f7;
+}
+
+/* ========================================
+   Search & Filters
+   ======================================== */
+
+.wtg-search-box {
+	display: flex;
+	gap: 10px;
+	margin: 20px 0;
+}
+
+.wtg-search-box input[type="text"] {
+	flex: 1;
+	max-width: 400px;
+}
+
+.wtg-filters {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin: 20px 0;
+}
+
+.wtg-filters select {
+	min-width: 150px;
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+.wtg-text-muted {
+	color: #646970;
+}
+
+.wtg-text-success {
+	color: #00a32a;
+}
+
+.wtg-text-warning {
+	color: #dba617;
+}
+
+.wtg-text-danger {
+	color: #d63638;
+}
+
+.wtg-mt-20 {
+	margin-top: 20px;
+}
+
+.wtg-mb-20 {
+	margin-bottom: 20px;
+}
+
+.wtg-p-20 {
+	padding: 20px;
+}
