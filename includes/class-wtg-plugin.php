@@ -153,11 +153,12 @@ class WTG_Plugin {
 			true
 		);
 
-		// Localize scripts with AJAX URL and nonces.
+		// Localize scripts with AJAX URL, nonces, and form config.
 		$ajax_data = array(
 			'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
 			'nonceGiftCert'      => wp_create_nonce( 'wtg_validate_gc' ),
 			'nonceAvailability'  => wp_create_nonce( 'wtg_availability' ),
+			'bookingFormId'      => WTG_Gravity_Forms::BOOKING_FORM_ID,
 		);
 
 		wp_localize_script( 'wtg-gift-cert-validation', 'wtgAjax', $ajax_data );

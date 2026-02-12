@@ -1,7 +1,7 @@
 /**
  * Gift Certificate Validation
  *
- * Handles AJAX validation of gift certificate codes on the booking form (Form 2).
+ * Handles AJAX validation of gift certificate codes on the booking form.
  * When a valid code is entered, reduces the displayed GF total in real time.
  *
  * @package WTG2
@@ -10,8 +10,8 @@
 (function($) {
 	'use strict';
 
-	// Configuration
-	const FORM_ID = 2;
+	// Configuration — form ID is passed from PHP via wp_localize_script.
+	const FORM_ID = (typeof wtgAjax !== 'undefined' && wtgAjax.bookingFormId) ? parseInt(wtgAjax.bookingFormId) : 2;
 	const FIELD_ID = 14;
 	const FIELD_SELECTOR = '#input_' + FORM_ID + '_' + FIELD_ID;
 	const VALIDATION_DELAY = 800; // ms to wait after typing stops

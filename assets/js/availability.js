@@ -9,8 +9,8 @@
 (function($) {
 	'use strict';
 
-	// Configuration
-	const FORM_ID = 2;
+	// Configuration — form ID is passed from PHP via wp_localize_script.
+	const FORM_ID = (typeof wtgAjax !== 'undefined' && wtgAjax.bookingFormId) ? parseInt(wtgAjax.bookingFormId) : 2;
 	const FIELD_TOUR_DATE = 1;
 	const FIELD_TIME_SLOT = 2;
 	const FIELD_TICKETS = 3;
