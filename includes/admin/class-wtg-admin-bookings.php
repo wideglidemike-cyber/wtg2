@@ -77,6 +77,23 @@ class WTG_Admin_Bookings {
 			}
 
 			if ( $booking_id ) {
+				// Check availability if tour date or time slot changed.
+				$existing = WTG_Booking::get_by_id( $booking_id );
+
+				if ( $existing && ( $existing['tour_date'] !== $data['tour_date'] || $existing['time_slot'] !== $data['time_slot'] ) ) {
+					$availability = WTG_Availability_Controller::check_slot_availability(
+						$data['tour_date'],
+						$data['time_slot'],
+						$data['tickets']
+					);
+
+					if ( ! $availability['available'] ) {
+						$error_reason = urlencode( $availability['reason'] );
+						wp_redirect( admin_url( 'admin.php?page=wtg-bookings&action=edit&id=' . $booking_id . '&error=slot_unavailable&reason=' . $error_reason ) );
+						exit;
+					}
+				}
+
 				// Update existing booking.
 				WTG_Booking::update( $booking_id, $data );
 				$message = 'updated';
@@ -327,6 +344,15 @@ class WTG_Admin_Bookings {
 		?>
 		<div class="wrap wtg-admin-page">
 			<h1><?php echo $is_new ? esc_html__( 'Add New Booking', 'wtg2' ) : esc_html__( 'Edit Booking', 'wtg2' ); ?></h1>
+
+			<?php if ( isset( $_GET['error'] ) && 'slot_unavailable' === $_GET['error'] ) : ?>
+				<div class="notice notice-error is-dismissible">
+					<p>
+						<strong><?php esc_html_e( 'Cannot move booking:', 'wtg2' ); ?></strong>
+						<?php echo esc_html( isset( $_GET['reason'] ) ? urldecode( $_GET['reason'] ) : __( 'The selected time slot is not available.', 'wtg2' ) ); ?>
+					</p>
+				</div>
+			<?php endif; ?>
 
 			<form method="post" action="">
 				<?php wp_nonce_field( 'wtg_save_booking' ); ?>

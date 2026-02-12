@@ -264,7 +264,7 @@ class WTG_Admin_Settings {
 	 * Invoice hours field callback.
 	 */
 	public static function invoice_hours_callback() {
-		$value = get_option( 'wtg_invoice_hours_before', 48 );
+		$value = get_option( 'wtg_invoice_hours_before', 72 );
 		?>
 		<input type="number" name="wtg_invoice_hours_before" value="<?php echo esc_attr( $value ); ?>" min="1" max="168" class="regular-text">
 		<p class="description">

@@ -138,9 +138,9 @@ class WTG_Activator {
 			add_option( 'wtg_square_environment', 'production' );
 		}
 
-		// Invoice timing settings (adjustable 1-5 days, default 2 days/48 hours).
+		// Invoice timing settings (adjustable 1-5 days, default 3 days/72 hours).
 		if ( ! get_option( 'wtg_invoice_hours_before' ) ) {
-			add_option( 'wtg_invoice_hours_before', 48 );
+			add_option( 'wtg_invoice_hours_before', 72 );
 		}
 
 		// Capacity and threshold settings.

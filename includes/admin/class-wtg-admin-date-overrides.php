@@ -36,6 +36,47 @@ class WTG_Admin_Date_Overrides {
 				<?php esc_html_e( 'Click on time slots to mark them as manually full or available. Color coding: Green (available), Yellow (naturally full from bookings), Red (manually marked full).', 'wtg2' ); ?>
 			</p>
 
+			<!-- Legend -->
+			<div class="wtg-widget" style="margin-bottom: 20px; max-width: 600px;">
+				<h3><?php esc_html_e( 'Legend', 'wtg2' ); ?></h3>
+				<table style="width: 100%;">
+					<tr>
+						<td style="padding: 5px;">
+							<span class="wtg-calendar-slot available" style="display: inline-block; width: 60px; text-align: center;">S-AM</span>
+						</td>
+						<td><?php esc_html_e( 'Available - Slot has open seats', 'wtg2' ); ?></td>
+					</tr>
+					<tr>
+						<td style="padding: 5px;">
+							<span class="wtg-calendar-slot made" style="display: inline-block; width: 60px; text-align: center;">S-PM</span>
+						</td>
+						<td><?php esc_html_e( 'Made - Threshold reached, next slot unlocked', 'wtg2' ); ?></td>
+					</tr>
+					<tr>
+						<td style="padding: 5px;">
+							<span class="wtg-calendar-slot naturally-full" style="display: inline-block; width: 60px; text-align: center;">F-PM</span>
+						</td>
+						<td><?php esc_html_e( 'Naturally Full - All seats sold through bookings', 'wtg2' ); ?></td>
+					</tr>
+					<tr>
+						<td style="padding: 5px;">
+							<span class="wtg-calendar-slot manually-full" style="display: inline-block; width: 60px; text-align: center;">S-AM</span>
+						</td>
+						<td><?php esc_html_e( 'Manually Full - Marked as unavailable by admin (click to toggle)', 'wtg2' ); ?></td>
+					</tr>
+					<tr>
+						<td style="padding: 5px;">
+							<span class="wtg-calendar-slot locked" style="display: inline-block; width: 60px; text-align: center;">F-AM</span>
+						</td>
+						<td><?php esc_html_e( 'Locked - Not yet unlocked by progressive unlock logic', 'wtg2' ); ?></td>
+					</tr>
+				</table>
+				<p style="margin-top: 15px;">
+					<strong><?php esc_html_e( 'Slot Labels:', 'wtg2' ); ?></strong>
+					S-AM (Saturday 11am), S-PM (Saturday 5pm), F-PM (Friday 5pm), F-AM (Friday 11am)
+				</p>
+			</div>
+
 			<div class="wtg-calendar-wrapper">
 				<!-- Calendar Header with Navigation -->
 				<div class="wtg-calendar-header">
@@ -96,46 +137,6 @@ class WTG_Admin_Date_Overrides {
 				</table>
 			</div>
 
-			<!-- Legend -->
-			<div class="wtg-widget" style="margin-top: 20px; max-width: 600px;">
-				<h3><?php esc_html_e( 'Legend', 'wtg2' ); ?></h3>
-				<table style="width: 100%;">
-					<tr>
-						<td style="padding: 5px;">
-							<span class="wtg-calendar-slot available" style="display: inline-block; width: 60px; text-align: center;">S-AM</span>
-						</td>
-						<td><?php esc_html_e( 'Available - Slot has open seats', 'wtg2' ); ?></td>
-					</tr>
-					<tr>
-						<td style="padding: 5px;">
-							<span class="wtg-calendar-slot made" style="display: inline-block; width: 60px; text-align: center;">S-PM</span>
-						</td>
-						<td><?php esc_html_e( 'Made - Threshold reached, next slot unlocked', 'wtg2' ); ?></td>
-					</tr>
-					<tr>
-						<td style="padding: 5px;">
-							<span class="wtg-calendar-slot naturally-full" style="display: inline-block; width: 60px; text-align: center;">F-PM</span>
-						</td>
-						<td><?php esc_html_e( 'Naturally Full - All seats sold through bookings', 'wtg2' ); ?></td>
-					</tr>
-					<tr>
-						<td style="padding: 5px;">
-							<span class="wtg-calendar-slot manually-full" style="display: inline-block; width: 60px; text-align: center;">S-AM</span>
-						</td>
-						<td><?php esc_html_e( 'Manually Full - Marked as unavailable by admin (click to toggle)', 'wtg2' ); ?></td>
-					</tr>
-					<tr>
-						<td style="padding: 5px;">
-							<span class="wtg-calendar-slot locked" style="display: inline-block; width: 60px; text-align: center;">F-AM</span>
-						</td>
-						<td><?php esc_html_e( 'Locked - Not yet unlocked by progressive unlock logic', 'wtg2' ); ?></td>
-					</tr>
-				</table>
-				<p style="margin-top: 15px;">
-					<strong><?php esc_html_e( 'Slot Labels:', 'wtg2' ); ?></strong>
-					S-AM (Saturday 11am), S-PM (Saturday 5pm), F-PM (Friday 5pm), F-AM (Friday 11am)
-				</p>
-			</div>
 		</div>
 		<?php
 	}

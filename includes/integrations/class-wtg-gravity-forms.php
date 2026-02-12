@@ -19,11 +19,11 @@ class WTG_Gravity_Forms {
 	/**
 	 * Form IDs.
 	 */
-	const BOOKING_FORM_ID = 2;
-	const GIFT_CERT_FORM_ID = 1;
+	const BOOKING_FORM_ID = 8;
+	const GIFT_CERT_FORM_ID = 9;
 
 	/**
-	 * Booking Form Field IDs (Form 2).
+	 * Booking Form Field IDs (Form 8).
 	 */
 	const FIELD_TOUR_DATE = 1;
 	const FIELD_TIME_SLOT = 2;
@@ -35,7 +35,7 @@ class WTG_Gravity_Forms {
 	const FIELD_GIFT_CERT_CODE = 14;
 
 	/**
-	 * Gift Certificate Form Field IDs (Form 1).
+	 * Gift Certificate Form Field IDs (Form 9).
 	 */
 	const FIELD_GC_PURCHASER_NAME = 1;      // Subfields: 1.3 (first), 1.6 (last)
 	const FIELD_GC_PURCHASER_EMAIL = 2;
