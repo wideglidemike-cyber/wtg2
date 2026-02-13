@@ -2,7 +2,7 @@
 /**
  * Balance Confirmation Email Template
  *
- * Sent when customer completes their full payment.
+ * Sent when customer's booking is fully paid (via balance payment or gift certificate).
  *
  * @package WTG2
  * @subpackage Emails
@@ -14,11 +14,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 
+<?php if ( ! empty( $gc_applied ) ) : ?>
+<h2>Booking Confirmed - You're All Set!</h2>
+
+<p>Hi <?php echo esc_html( $customer_name ); ?>,</p>
+
+<p>Your gift certificate has been applied and your wine tour booking is fully covered. You're all set for an amazing wine tasting experience!</p>
+<?php else : ?>
 <h2>Payment Complete - You're All Set!</h2>
 
 <p>Hi <?php echo esc_html( $customer_name ); ?>,</p>
 
 <p>Excellent news! We've received your final payment and your wine tour booking is now fully paid. You're all set for an amazing wine tasting experience!</p>
+<?php endif; ?>
 
 <div class="info-box">
 	<table>
@@ -38,15 +46,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<td>Number of Tickets:</td>
 			<td><?php echo esc_html( $tickets ); ?></td>
 		</tr>
+		<?php if ( ! empty( $gc_applied ) ) : ?>
+		<tr>
+			<td>Gift Certificate Applied:</td>
+			<td><strong style="color: #28a745;">$<?php echo esc_html( $discount_applied ); ?></strong></td>
+		</tr>
+		<?php else : ?>
 		<tr>
 			<td>Total Paid:</td>
 			<td><strong style="color: #28a745;">$<?php echo esc_html( $total_paid ); ?></strong></td>
 		</tr>
+		<?php endif; ?>
 	</table>
 </div>
 
 <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 15px 20px; margin: 20px 0;">
-	<p style="margin: 0; color: #155724;"><strong>✓ Payment Complete</strong> - No further payment required!</p>
+	<?php if ( ! empty( $gc_applied ) ) : ?>
+	<p style="margin: 0; color: #155724;"><strong>&#10003; Booking Confirmed</strong> - Gift certificate applied, no further payment required!</p>
+	<?php else : ?>
+	<p style="margin: 0; color: #155724;"><strong>&#10003; Payment Complete</strong> - No further payment required!</p>
+	<?php endif; ?>
 </div>
 
 <div class="divider"></div>

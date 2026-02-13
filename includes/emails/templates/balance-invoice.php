@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 <p>Hi <?php echo esc_html( $customer_name ); ?>,</p>
 
-<p>We're looking forward to hosting you on your wine tour in just 2 days! This is a friendly reminder that your balance payment is now due.</p>
+<p>We're looking forward to hosting you on your wine tour! This is a friendly reminder that your balance payment is now due.</p>
 
 <div class="info-box">
 	<table>

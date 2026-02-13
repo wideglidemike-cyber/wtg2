@@ -50,7 +50,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 </div>
 
 <div class="alert-box">
-	<p><strong>Important:</strong> Your balance payment of $<?php echo esc_html( $balance_due ); ?> is due before your tour date. We'll send you a payment reminder 48 hours before your scheduled tour.</p>
+	<p><strong>Important:</strong> Your balance payment of $<?php echo esc_html( $balance_due ); ?> (includes 8.25% TX sales tax) is due before your tour date. We'll send you a payment reminder 72 hours before your scheduled tour.</p>
 </div>
 
 <div class="divider"></div>

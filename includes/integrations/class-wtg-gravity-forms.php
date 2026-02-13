@@ -55,8 +55,8 @@ class WTG_Gravity_Forms {
 	 * Initialize hooks.
 	 */
 	private function init_hooks() {
-		// Gift Certificate Form hooks.
-		add_action( 'gform_after_submission_' . self::GIFT_CERT_FORM_ID, array( $this, 'process_gift_certificate_purchase' ), 10, 2 );
+		// Gift Certificate Form hooks — use entry_post_save so the code exists before notifications fire.
+		add_action( 'gform_entry_post_save_' . self::GIFT_CERT_FORM_ID, array( $this, 'process_gift_certificate_purchase' ), 10, 2 );
 		add_filter( 'gform_notification_' . self::GIFT_CERT_FORM_ID, array( $this, 'update_gift_cert_notification' ), 10, 3 );
 
 		// Booking Form hooks.
@@ -139,6 +139,19 @@ class WTG_Gravity_Forms {
 			if ( function_exists( 'error_log' ) ) {
 				error_log( sprintf( 'WTG2: Gift certificate %s created for entry %d', $code, $entry['id'] ) );
 			}
+
+			// Send emails directly (GF notifications unreliable with Square add-on).
+			$gc_data = array(
+				'code'            => $code,
+				'amount'          => $amount,
+				'purchaser_name'  => $purchaser_name,
+				'purchaser_email' => $purchaser_email,
+				'recipient_name'  => $recipient_name,
+				'recipient_email' => $recipient_email,
+				'message'         => $message,
+			);
+			WTG_Email_Templates::send_gift_certificate_purchaser( $gc_data );
+			WTG_Email_Templates::send_gift_certificate_recipient( $gc_data );
 		}
 	}
 
@@ -151,6 +164,11 @@ class WTG_Gravity_Forms {
 	 * @return array Modified notification.
 	 */
 	public function update_gift_cert_notification( $notification, $form, $entry ) {
+		// Guard: entry can be null during admin previews or delayed payment flows.
+		if ( empty( $entry ) || ! isset( $entry['id'] ) ) {
+			return $notification;
+		}
+
 		// Get the gift certificate code from entry meta.
 		$code = gform_get_meta( $entry['id'], 'wtg_gift_cert_code' );
 
@@ -286,20 +304,26 @@ class WTG_Gravity_Forms {
 				$gift_cert_id     = $gift_cert->id;
 				$discount_applied = floatval( $gift_cert->amount );
 
-				// Apply cert to deposit first, remainder to pre-tax balance.
+				// Apply cert to deposit first, remainder to balance, remainder to tax.
 				$deposit_discount = min( $discount_applied, $deposit_amount );
 				$remaining_credit = $discount_applied - $deposit_discount;
 				$balance_discount = min( $remaining_credit, $balance_pretax );
+				$remaining_credit = $remaining_credit - $balance_discount;
+				$tax_discount     = min( $remaining_credit, $tax_amount );
 
 				$deposit_amount = $deposit_amount - $deposit_discount;
 				$balance_due    = max( 0, $balance_pretax - $balance_discount );
+				$tax_amount     = max( 0, $tax_amount - $tax_discount );
 
-				// Prevent rounding dust (sub-cent) from creating a balance.
+				// Prevent rounding dust (sub-cent) from creating amounts.
 				if ( $deposit_amount < 0.01 ) {
 					$deposit_amount = 0.00;
 				}
 				if ( $balance_due < 0.01 ) {
 					$balance_due = 0.00;
+				}
+				if ( $tax_amount < 0.01 ) {
+					$tax_amount = 0.00;
 				}
 
 				$total_amount = $deposit_amount + $balance_due + $tax_amount;
@@ -308,8 +332,8 @@ class WTG_Gravity_Forms {
 
 		// Determine payment status.
 		$payment_status = 'pending';
-		if ( $deposit_amount <= 0 && $balance_due <= 0 ) {
-			// Gift cert covers everything.
+		if ( $deposit_amount <= 0 && $balance_due <= 0 && $tax_amount <= 0 ) {
+			// Gift cert covers everything (deposit + balance + tax).
 			$payment_status = 'paid_full';
 		} elseif ( $deposit_amount <= 0 && $balance_due > 0 ) {
 			// Gift cert covers the deposit; GF/Square did not charge.
@@ -353,28 +377,32 @@ class WTG_Gravity_Forms {
 			}
 
 			// Deposit is collected directly via Gravity Forms Square add-on — no separate invoice needed.
-			// Create draft balance invoice in Square (will be published/sent by cron 72hrs before tour).
 			$booking = WTG_Booking::get_by_id( $booking_id );
 			if ( $booking ) {
-				$invoice_result = WTG_Square_Invoice::create_balance_invoice( $booking_id, $booking );
+				// Only create a balance invoice if there's something to charge.
+				if ( 'paid_full' !== $payment_status ) {
+					$invoice_result = WTG_Square_Invoice::create_balance_invoice( $booking_id, $booking );
 
-				if ( $invoice_result['success'] ) {
-					WTG_Booking::update(
-						$booking_id,
-						array( 'balance_square_id' => $invoice_result['invoice_id'] )
-					);
+					if ( $invoice_result['success'] ) {
+						WTG_Booking::update(
+							$booking_id,
+							array( 'balance_square_id' => $invoice_result['invoice_id'] )
+						);
 
-					error_log( sprintf(
-						'WTG2: Draft balance invoice %s created for booking %d',
-						$invoice_result['invoice_id'],
-						$booking_id
-					) );
+						error_log( sprintf(
+							'WTG2: Draft balance invoice %s created for booking %d',
+							$invoice_result['invoice_id'],
+							$booking_id
+						) );
+					} else {
+						error_log( sprintf(
+							'WTG2: Failed to create draft invoice for booking %d: %s',
+							$booking_id,
+							$invoice_result['error']
+						) );
+					}
 				} else {
-					error_log( sprintf(
-						'WTG2: Failed to create draft invoice for booking %d: %s',
-						$booking_id,
-						$invoice_result['error']
-					) );
+					error_log( sprintf( 'WTG2: Booking %d fully paid by gift certificate — no invoice needed.', $booking_id ) );
 				}
 
 				// Send confirmation email.

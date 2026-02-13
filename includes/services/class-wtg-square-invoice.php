@@ -308,12 +308,27 @@ class WTG_Square_Invoice {
 
 			// Texas sales tax: 8.25% on the FULL ticket price ($165/ticket),
 			// collected entirely on the balance invoice per business rules.
+			// If a gift certificate covered deposit + balance with credit left over,
+			// the remaining credit reduces the tax amount on the invoice.
 			$full_ticket_price = 165.00 * $tickets;
 			$tax_amount        = round( $full_ticket_price * 0.0825, 2 );
 
+			$discount_applied = floatval( $booking['discount_applied'] ?? 0 );
+			if ( $discount_applied > 0 ) {
+				$deposit_gross    = 35.00 * $tickets;
+				$deposit_covered  = max( 0, $deposit_gross - floatval( $booking['deposit_amount'] ?? $deposit_gross ) );
+				$balance_covered  = max( 0, $gross_balance - $balance_due );
+				$remaining_credit = max( 0, $discount_applied - $deposit_covered - $balance_covered );
+				$tax_amount       = max( 0, round( $tax_amount - $remaining_credit, 2 ) );
+			}
+
 			if ( $tax_amount > 0 ) {
+				$tax_label = $has_discount && $tax_amount < round( $full_ticket_price * 0.0825, 2 )
+					? sprintf( 'Texas Sales Tax (8.25%% on $%s, gift certificate applied)', number_format( $full_ticket_price, 2 ) )
+					: sprintf( 'Texas Sales Tax (8.25%% on $%s)', number_format( $full_ticket_price, 2 ) );
+
 				$tax_item = \Square\Models\Builders\OrderLineItemBuilder::init( '1' )
-					->name( sprintf( 'Texas Sales Tax (8.25%% on $%s)', number_format( $full_ticket_price, 2 ) ) )
+					->name( $tax_label )
 					->basePriceMoney(
 						\Square\Models\Builders\MoneyBuilder::init()
 							->amount( intval( round( $tax_amount * 100 ) ) )
