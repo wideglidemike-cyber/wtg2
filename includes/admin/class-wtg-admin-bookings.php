@@ -71,6 +71,13 @@ class WTG_Admin_Bookings {
 				'notes'             => sanitize_textarea_field( $_POST['notes'] ),
 			);
 
+			// For manual bookings, ensure amounts are zeroed out and balance_due is set.
+			if ( 'manual' === $data['payment_status'] ) {
+				$data['total_amount']   = 0;
+				$data['deposit_amount'] = 0;
+				$data['balance_due']    = 0;
+			}
+
 			// Handle gift certificate.
 			if ( ! empty( $_POST['gift_cert_code'] ) ) {
 				$data['gift_cert_code'] = sanitize_text_field( $_POST['gift_cert_code'] );
@@ -98,10 +105,30 @@ class WTG_Admin_Bookings {
 				WTG_Booking::update( $booking_id, $data );
 				$message = 'updated';
 			} else {
+				// Check availability for new bookings.
+				$availability = WTG_Availability_Controller::check_slot_availability(
+					$data['tour_date'],
+					$data['time_slot'],
+					$data['tickets']
+				);
+
+				if ( ! $availability['available'] ) {
+					$error_reason = urlencode( $availability['reason'] );
+					wp_redirect( admin_url( 'admin.php?page=wtg-bookings&action=new&error=slot_unavailable&reason=' . $error_reason ) );
+					exit;
+				}
+
 				// Create new booking.
-				$data['booking_code'] = WTG_Booking::generate_booking_code();
 				$booking_id = WTG_Booking::create( $data );
 				$message = 'created';
+
+				// Send confirmation email for manual bookings.
+				if ( $booking_id && 'manual' === $data['payment_status'] ) {
+					$booking = WTG_Booking::get_by_id( $booking_id );
+					if ( $booking ) {
+						WTG_Email_Templates::send_manual_booking_confirmation( $booking );
+					}
+				}
 			}
 
 			wp_redirect( admin_url( 'admin.php?page=wtg-bookings&message=' . $message ) );
@@ -202,6 +229,7 @@ class WTG_Admin_Bookings {
 					<option value="pending" <?php selected( $status_filter, 'pending' ); ?>><?php esc_html_e( 'Pending', 'wtg2' ); ?></option>
 					<option value="deposit_paid" <?php selected( $status_filter, 'deposit_paid' ); ?>><?php esc_html_e( 'Deposit Paid', 'wtg2' ); ?></option>
 					<option value="paid_full" <?php selected( $status_filter, 'paid_full' ); ?>><?php esc_html_e( 'Paid Full', 'wtg2' ); ?></option>
+					<option value="manual" <?php selected( $status_filter, 'manual' ); ?>><?php esc_html_e( 'Manual', 'wtg2' ); ?></option>
 					<option value="refunded" <?php selected( $status_filter, 'refunded' ); ?>><?php esc_html_e( 'Refunded', 'wtg2' ); ?></option>
 				</select>
 				<input type="date" name="date_from" value="<?php echo esc_attr( $date_from ); ?>" placeholder="<?php esc_attr_e( 'From Date', 'wtg2' ); ?>">
@@ -324,7 +352,7 @@ class WTG_Admin_Bookings {
 			}
 		}
 
-		// Default values for new booking.
+		// Default values for new booking (manual = admin-created, no payment).
 		$defaults = array(
 			'tour_date'      => '',
 			'time_slot'      => '',
@@ -334,7 +362,7 @@ class WTG_Admin_Bookings {
 			'tickets'        => 1,
 			'total_amount'   => 0,
 			'deposit_amount' => 0,
-			'payment_status' => 'pending',
+			'payment_status' => 'manual',
 			'gift_cert_code' => '',
 			'notes'          => '',
 		);
@@ -348,7 +376,7 @@ class WTG_Admin_Bookings {
 			<?php if ( isset( $_GET['error'] ) && 'slot_unavailable' === $_GET['error'] ) : ?>
 				<div class="notice notice-error is-dismissible">
 					<p>
-						<strong><?php esc_html_e( 'Cannot move booking:', 'wtg2' ); ?></strong>
+						<strong><?php esc_html_e( 'Slot unavailable:', 'wtg2' ); ?></strong>
 						<?php echo esc_html( isset( $_GET['reason'] ) ? urldecode( $_GET['reason'] ) : __( 'The selected time slot is not available.', 'wtg2' ) ); ?>
 					</p>
 				</div>
@@ -422,6 +450,7 @@ class WTG_Admin_Bookings {
 									<option value="pending" <?php selected( $booking['payment_status'], 'pending' ); ?>><?php esc_html_e( 'Pending', 'wtg2' ); ?></option>
 									<option value="deposit_paid" <?php selected( $booking['payment_status'], 'deposit_paid' ); ?>><?php esc_html_e( 'Deposit Paid', 'wtg2' ); ?></option>
 									<option value="paid_full" <?php selected( $booking['payment_status'], 'paid_full' ); ?>><?php esc_html_e( 'Paid Full', 'wtg2' ); ?></option>
+									<option value="manual" <?php selected( $booking['payment_status'], 'manual' ); ?>><?php esc_html_e( 'Manual (No Payment)', 'wtg2' ); ?></option>
 									<option value="refunded" <?php selected( $booking['payment_status'], 'refunded' ); ?>><?php esc_html_e( 'Refunded', 'wtg2' ); ?></option>
 								</select>
 							</td>

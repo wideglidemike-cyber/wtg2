@@ -80,53 +80,58 @@ class WTG_Booking {
 		// Generate booking code (will be updated after insert to include ID).
 		$temp_code = 'TEMP-' . uniqid();
 
-		$result = $wpdb->insert(
-			self::get_table_name(),
-			array(
-				'booking_code'      => $temp_code,
-				'gf_entry_id'       => absint( $data['gf_entry_id'] ),
-				'tour_date'         => sanitize_text_field( $data['tour_date'] ),
-				'time_slot'         => sanitize_text_field( $data['time_slot'] ),
-				'tickets'           => absint( $data['tickets'] ),
-				'total_amount'      => ! empty( $data['total_amount'] ) ? floatval( $data['total_amount'] ) : null,
-				'first_name'        => sanitize_text_field( $data['first_name'] ),
-				'last_name'         => sanitize_text_field( $data['last_name'] ),
-				'email'             => sanitize_email( $data['email'] ),
-				'phone'             => sanitize_text_field( $data['phone'] ),
-				'deposit_amount'    => floatval( $data['deposit_amount'] ),
-				'balance_due'       => floatval( $data['balance_due'] ),
-				'payment_status'    => sanitize_text_field( $data['payment_status'] ),
-				'gift_cert_id'      => ! empty( $data['gift_cert_id'] ) ? absint( $data['gift_cert_id'] ) : null,
-				'discount_applied'  => floatval( $data['discount_applied'] ),
-				'deposit_square_id' => ! empty( $data['deposit_square_id'] ) ? sanitize_text_field( $data['deposit_square_id'] ) : null,
-				'balance_square_id' => ! empty( $data['balance_square_id'] ) ? sanitize_text_field( $data['balance_square_id'] ) : null,
-				'invoice_square_id' => ! empty( $data['invoice_square_id'] ) ? sanitize_text_field( $data['invoice_square_id'] ) : null,
-				'invoice_sent_at'   => $data['invoice_sent_at'],
-				'notes'             => wp_kses_post( $data['notes'] ),
-			),
-			array(
-				'%s', // booking_code
-				'%d', // gf_entry_id
-				'%s', // tour_date
-				'%s', // time_slot
-				'%d', // tickets
-				'%f', // total_amount
-				'%s', // first_name
-				'%s', // last_name
-				'%s', // email
-				'%s', // phone
-				'%f', // deposit_amount
-				'%f', // balance_due
-				'%s', // payment_status
-				'%d', // gift_cert_id
-				'%f', // discount_applied
-				'%s', // deposit_square_id
-				'%s', // balance_square_id
-				'%s', // invoice_square_id
-				'%s', // invoice_sent_at
-				'%s', // notes
-			)
+		// Build insert data and format arrays.
+		$insert_data = array(
+			'booking_code'      => $temp_code,
+			'tour_date'         => sanitize_text_field( $data['tour_date'] ),
+			'time_slot'         => sanitize_text_field( $data['time_slot'] ),
+			'tickets'           => absint( $data['tickets'] ),
+			'total_amount'      => ! empty( $data['total_amount'] ) ? floatval( $data['total_amount'] ) : null,
+			'first_name'        => sanitize_text_field( $data['first_name'] ),
+			'last_name'         => sanitize_text_field( $data['last_name'] ),
+			'email'             => sanitize_email( $data['email'] ),
+			'phone'             => sanitize_text_field( $data['phone'] ),
+			'deposit_amount'    => floatval( $data['deposit_amount'] ),
+			'balance_due'       => floatval( $data['balance_due'] ),
+			'payment_status'    => sanitize_text_field( $data['payment_status'] ),
+			'gift_cert_id'      => ! empty( $data['gift_cert_id'] ) ? absint( $data['gift_cert_id'] ) : null,
+			'discount_applied'  => floatval( $data['discount_applied'] ),
+			'deposit_square_id' => ! empty( $data['deposit_square_id'] ) ? sanitize_text_field( $data['deposit_square_id'] ) : null,
+			'balance_square_id' => ! empty( $data['balance_square_id'] ) ? sanitize_text_field( $data['balance_square_id'] ) : null,
+			'invoice_square_id' => ! empty( $data['invoice_square_id'] ) ? sanitize_text_field( $data['invoice_square_id'] ) : null,
+			'invoice_sent_at'   => $data['invoice_sent_at'],
+			'notes'             => wp_kses_post( $data['notes'] ),
 		);
+
+		$insert_format = array(
+			'%s', // booking_code
+			'%s', // tour_date
+			'%s', // time_slot
+			'%d', // tickets
+			'%f', // total_amount
+			'%s', // first_name
+			'%s', // last_name
+			'%s', // email
+			'%s', // phone
+			'%f', // deposit_amount
+			'%f', // balance_due
+			'%s', // payment_status
+			'%d', // gift_cert_id
+			'%f', // discount_applied
+			'%s', // deposit_square_id
+			'%s', // balance_square_id
+			'%s', // invoice_square_id
+			'%s', // invoice_sent_at
+			'%s', // notes
+		);
+
+		// Only include gf_entry_id when provided (admin bookings have no GF entry).
+		if ( ! empty( $data['gf_entry_id'] ) ) {
+			$insert_data['gf_entry_id'] = absint( $data['gf_entry_id'] );
+			$insert_format[] = '%d';
+		}
+
+		$result = $wpdb->insert( self::get_table_name(), $insert_data, $insert_format );
 
 		if ( ! $result ) {
 			return false;
@@ -227,7 +232,7 @@ class WTG_Booking {
 
 		// Default to all non-refunded statuses.
 		if ( is_null( $statuses ) ) {
-			$statuses = array( 'pending', 'deposit_paid', 'paid_full' );
+			$statuses = array( 'pending', 'deposit_paid', 'paid_full', 'manual' );
 		}
 
 		$placeholders = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
@@ -249,7 +254,7 @@ class WTG_Booking {
 	 * @return int Total paid tickets.
 	 */
 	public static function count_paid_tickets( $tour_date, $time_slot ) {
-		return self::count_tickets_sold( $tour_date, $time_slot, array( 'deposit_paid', 'paid_full' ) );
+		return self::count_tickets_sold( $tour_date, $time_slot, array( 'deposit_paid', 'paid_full', 'manual' ) );
 	}
 
 	/**

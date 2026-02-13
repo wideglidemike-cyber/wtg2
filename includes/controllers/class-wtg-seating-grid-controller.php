@@ -41,6 +41,7 @@ class WTG_Seating_Grid_Controller {
 			switch ( $booking->payment_status ) {
 				case 'deposit_paid':
 				case 'paid_full':
+				case 'manual':
 					$status = 'confirmed';
 					break;
 				case 'pending':

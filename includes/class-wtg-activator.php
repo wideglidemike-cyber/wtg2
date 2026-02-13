@@ -46,7 +46,7 @@ class WTG_Activator {
 		$sql_bookings   = "CREATE TABLE {$table_bookings} (
 			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			booking_code varchar(20) DEFAULT NULL,
-			gf_entry_id bigint(20) UNSIGNED NOT NULL,
+			gf_entry_id bigint(20) UNSIGNED DEFAULT NULL,
 			tour_date date NOT NULL,
 			time_slot enum('fri_am','fri_pm','sat_am','sat_pm') NOT NULL,
 			tickets tinyint(3) UNSIGNED NOT NULL,
@@ -56,7 +56,7 @@ class WTG_Activator {
 			phone varchar(20) DEFAULT NULL,
 			deposit_amount decimal(10,2) DEFAULT NULL,
 			balance_due decimal(10,2) DEFAULT NULL,
-			payment_status enum('pending','deposit_paid','paid_full','refunded') DEFAULT 'pending',
+			payment_status enum('pending','deposit_paid','paid_full','refunded','manual') DEFAULT 'pending',
 			gift_cert_id bigint(20) UNSIGNED DEFAULT NULL,
 			discount_applied decimal(10,2) DEFAULT 0.00,
 			invoice_square_id varchar(100) DEFAULT NULL,
@@ -66,7 +66,7 @@ class WTG_Activator {
 			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY idx_booking_code (booking_code),
-			UNIQUE KEY idx_gf_entry (gf_entry_id),
+			KEY idx_gf_entry (gf_entry_id),
 			KEY idx_tour_date_slot (tour_date, time_slot),
 			KEY idx_payment_status (payment_status),
 			KEY idx_invoice_pending (invoice_sent_at, created_at)
@@ -79,6 +79,9 @@ class WTG_Activator {
 
 		// Migration: Add missing columns for Square integration.
 		self::migrate_square_columns();
+
+		// Migration: Support manual bookings (nullable gf_entry_id, manual status).
+		self::migrate_manual_booking_support();
 
 		// Table 2: Gift Certificates.
 		$table_gift_certs = $prefix . 'wtg_gift_certificates';
@@ -249,6 +252,68 @@ class WTG_Activator {
 
 		if ( empty( $column_exists ) ) {
 			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN balance_square_id varchar(100) DEFAULT NULL AFTER deposit_square_id" );
+		}
+	}
+
+	/**
+	 * Migrate to support manual (admin-created) bookings.
+	 *
+	 * Makes gf_entry_id nullable, adds 'manual' payment status,
+	 * and drops the UNIQUE constraint on gf_entry_id.
+	 */
+	private static function migrate_manual_booking_support() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'wtg_bookings';
+
+		// Make gf_entry_id nullable.
+		$col_info = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'gf_entry_id'",
+				DB_NAME,
+				$table
+			)
+		);
+
+		if ( $col_info && 'NO' === $col_info->IS_NULLABLE ) {
+			$wpdb->query( "ALTER TABLE {$table} MODIFY gf_entry_id bigint(20) UNSIGNED DEFAULT NULL" );
+		}
+
+		// Drop UNIQUE key on gf_entry_id if it exists.
+		$index_exists = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = 'idx_gf_entry'",
+				DB_NAME,
+				$table
+			)
+		);
+
+		if ( $index_exists ) {
+			// Check if it's a UNIQUE index before dropping.
+			$is_unique = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT NON_UNIQUE FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = 'idx_gf_entry' LIMIT 1",
+					DB_NAME,
+					$table
+				)
+			);
+
+			if ( '0' === $is_unique ) {
+				$wpdb->query( "ALTER TABLE {$table} DROP INDEX idx_gf_entry" );
+				$wpdb->query( "ALTER TABLE {$table} ADD KEY idx_gf_entry (gf_entry_id)" );
+			}
+		}
+
+		// Add 'manual' to payment_status enum if not present.
+		$col_type = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'payment_status'",
+				DB_NAME,
+				$table
+			)
+		);
+
+		if ( $col_type && strpos( $col_type, "'manual'" ) === false ) {
+			$wpdb->query( "ALTER TABLE {$table} MODIFY payment_status enum('pending','deposit_paid','paid_full','refunded','manual') DEFAULT 'pending'" );
 		}
 	}
 }

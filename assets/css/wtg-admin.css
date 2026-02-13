@@ -109,6 +109,12 @@
 	border: 1px solid #ebccd1;
 }
 
+.wtg-status-badge.manual {
+	background-color: #e8daf0;
+	color: #6b1f7d;
+	border: 1px solid #d4bfe0;
+}
+
 .wtg-status-badge.active {
 	background-color: #dff0d8;
 	color: #3c763d;

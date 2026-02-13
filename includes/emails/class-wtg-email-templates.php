@@ -103,6 +103,30 @@ class WTG_Email_Templates {
 	}
 
 	/**
+	 * Send manual booking confirmation (admin-created, no payment).
+	 *
+	 * @param array $booking Booking data.
+	 */
+	public static function send_manual_booking_confirmation( $booking ) {
+		$to = $booking['email'];
+		$subject = sprintf(
+			'Booking Confirmed - Wine Tours Grapevine Booking %s',
+			$booking['booking_code']
+		);
+
+		$message = self::get_email_template( 'manual-booking-confirmation', array(
+			'customer_name' => trim( ( $booking['first_name'] ?? '' ) . ' ' . ( $booking['last_name'] ?? '' ) ),
+			'booking_code'  => $booking['booking_code'],
+			'tour_date'     => date( 'F j, Y', strtotime( $booking['tour_date'] ) ),
+			'time_slot'     => self::get_time_slot_label( $booking['time_slot'] ),
+			'tickets'       => $booking['tickets'],
+			'arrival_time'  => self::get_arrival_time( $booking['time_slot'] ),
+		) );
+
+		self::send_email( $to, $subject, $message );
+	}
+
+	/**
 	 * Send gift certificate confirmation to purchaser.
 	 *
 	 * @param array $gc_data Gift certificate data.

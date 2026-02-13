@@ -18,8 +18,28 @@
 	 * Initialize booking form handlers.
 	 */
 	function initBookingFormHandlers() {
-		// Auto-calculate deposit as 50% of total.
+		// Payment fields to hide/show based on status.
+		var $paymentFields = $('#total_amount, #deposit_amount, #gift_cert_code').closest('tr');
+
+		// Toggle payment fields visibility based on payment status.
+		function togglePaymentFields() {
+			var status = $('#payment_status').val();
+			if ('manual' === status) {
+				$paymentFields.hide();
+			} else {
+				$paymentFields.show();
+			}
+		}
+
+		// Run on page load and on status change.
+		$('#payment_status').on('change', togglePaymentFields);
+		togglePaymentFields();
+
+		// Auto-calculate deposit as 50% of total (only for non-manual).
 		$('#total_amount').on('input', function() {
+			if ('manual' === $('#payment_status').val()) {
+				return;
+			}
 			const total = parseFloat($(this).val()) || 0;
 			const deposit = (total * 0.5).toFixed(2);
 			$('#deposit_amount').val(deposit);
@@ -32,27 +52,36 @@
 			const customerName = $('#customer_name').val();
 			const customerEmail = $('#customer_email').val();
 			const tickets = parseInt($('#tickets').val()) || 0;
-			const totalAmount = parseFloat($('#total_amount').val()) || 0;
+			const isManual = 'manual' === $('#payment_status').val();
 
 			// Basic validation.
-			if (!tourDate || !timeSlot || !customerName || !customerEmail || tickets < 1 || totalAmount <= 0) {
+			if (!tourDate || !timeSlot || !customerName || !customerEmail || tickets < 1) {
 				alert('Please fill in all required fields.');
 				e.preventDefault();
 				return false;
+			}
+
+			// Amount validation only for non-manual bookings.
+			if (!isManual) {
+				const totalAmount = parseFloat($('#total_amount').val()) || 0;
+				if (totalAmount <= 0) {
+					alert('Please enter a total amount.');
+					e.preventDefault();
+					return false;
+				}
+
+				const depositAmount = parseFloat($('#deposit_amount').val()) || 0;
+				if (depositAmount > totalAmount) {
+					alert('Deposit amount cannot exceed total amount.');
+					e.preventDefault();
+					return false;
+				}
 			}
 
 			// Validate email format.
 			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 			if (!emailRegex.test(customerEmail)) {
 				alert('Please enter a valid email address.');
-				e.preventDefault();
-				return false;
-			}
-
-			// Validate deposit doesn't exceed total.
-			const depositAmount = parseFloat($('#deposit_amount').val()) || 0;
-			if (depositAmount > totalAmount) {
-				alert('Deposit amount cannot exceed total amount.');
 				e.preventDefault();
 				return false;
 			}

@@ -111,7 +111,7 @@ class WTG_Admin_Dashboard {
 		$table = $wpdb->prefix . 'wtg_bookings';
 
 		// Get counts and totals by status.
-		$statuses = array( 'pending', 'deposit_paid', 'paid_full', 'refunded' );
+		$statuses = array( 'pending', 'deposit_paid', 'paid_full', 'manual', 'refunded' );
 		$status_data = array();
 
 		foreach ( $statuses as $status ) {
