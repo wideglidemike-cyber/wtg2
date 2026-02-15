@@ -29,6 +29,11 @@ class WTG_Seating_Grid_Controller {
 		// Get all bookings for this slot
 		$bookings = WTG_Booking::get_by_date_slot( $date, $time_slot );
 
+		// Check if tour is "made" (paid tickets >= threshold)
+		$paid_tickets = WTG_Booking::count_paid_tickets( $date, $time_slot );
+		$made_threshold = WTG_Availability_Controller::get_made_threshold();
+		$is_made = $paid_tickets >= $made_threshold;
+
 		$seats = array();
 		$seat_number = 1;
 
@@ -37,21 +42,16 @@ class WTG_Seating_Grid_Controller {
 			$num_tickets = absint( $booking->tickets );
 			$status = '';
 
-			// Determine seat status based on payment status
-			switch ( $booking->payment_status ) {
-				case 'deposit_paid':
-				case 'paid_full':
-				case 'manual':
-					$status = 'confirmed';
-					break;
-				case 'pending':
-					$status = 'pending';
-					break;
-				case 'refunded':
-					// Skip refunded bookings
-					continue 2;
-				default:
-					$status = 'pending';
+			// Skip refunded bookings
+			if ( 'refunded' === $booking->payment_status ) {
+				continue;
+			}
+
+			// Determine seat status: only show confirmed (green) if tour is "made"
+			if ( $is_made && in_array( $booking->payment_status, array( 'deposit_paid', 'paid_full', 'manual' ), true ) ) {
+				$status = 'confirmed';
+			} else {
+				$status = 'pending';
 			}
 
 			// Assign seats for this booking

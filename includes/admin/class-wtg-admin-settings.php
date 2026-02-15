@@ -70,6 +70,21 @@ class WTG_Admin_Settings {
 			'wtg_tour_config'
 		);
 
+		// Made Threshold (tour confirmed).
+		register_setting( self::OPTION_GROUP, 'wtg_made_threshold', array(
+			'type'              => 'integer',
+			'default'           => 5,
+			'sanitize_callback' => 'absint',
+		) );
+
+		add_settings_field(
+			'wtg_made_threshold',
+			__( 'Tour "Made" Threshold', 'wtg2' ),
+			array( __CLASS__, 'made_threshold_callback' ),
+			self::OPTION_GROUP,
+			'wtg_tour_config'
+		);
+
 		// Invoice Hours Before.
 		register_setting( self::OPTION_GROUP, 'wtg_invoice_hours_before', array(
 			'type'              => 'integer',
@@ -256,6 +271,19 @@ class WTG_Admin_Settings {
 		<input type="number" name="wtg_unlock_threshold" value="<?php echo esc_attr( $value ); ?>" min="1" max="50" class="regular-text">
 		<p class="description">
 			<?php esc_html_e( 'Number of paid tickets required to unlock the next time slot. Progressive order: Sat AM → Sat PM → Fri PM → Fri AM.', 'wtg2' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Made threshold field callback.
+	 */
+	public static function made_threshold_callback() {
+		$value = get_option( 'wtg_made_threshold', 5 );
+		?>
+		<input type="number" name="wtg_made_threshold" value="<?php echo esc_attr( $value ); ?>" min="1" max="50" class="regular-text">
+		<p class="description">
+			<?php esc_html_e( 'Minimum paid tickets for a tour to be "made" (confirmed). Seats show as pending/yellow until this number is reached, then switch to confirmed/green.', 'wtg2' ); ?>
 		</p>
 		<?php
 	}

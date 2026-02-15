@@ -42,6 +42,15 @@ class WTG_Availability_Controller {
 	}
 
 	/**
+	 * Get the "made" threshold — minimum paid tickets for a tour to be confirmed.
+	 *
+	 * @return int Number of paid tickets needed for tour to be "made".
+	 */
+	public static function get_made_threshold() {
+		return absint( get_option( 'wtg_made_threshold', 5 ) );
+	}
+
+	/**
 	 * Check if a specific slot is available for a date.
 	 *
 	 * @param string $tour_date Tour date (Y-m-d format).
