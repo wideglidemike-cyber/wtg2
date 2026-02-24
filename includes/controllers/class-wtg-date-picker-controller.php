@@ -22,7 +22,7 @@ class WTG_Date_Picker_Controller {
 	 * @param int $count Number of weekends to return (default: 8).
 	 * @return array Array of weekend data with Friday and Saturday dates.
 	 */
-	public static function get_upcoming_weekends( $count = 8 ) {
+	public static function get_upcoming_weekends( $count = 12 ) {
 		$weekends = array();
 		$current_date = strtotime( 'today' );
 

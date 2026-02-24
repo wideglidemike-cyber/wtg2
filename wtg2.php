@@ -3,7 +3,7 @@
  * Plugin Name: Wine Tours Grapevine 2
  * Plugin URI: https://winetoursgrapevine.com
  * Description: Complete booking system for wine tours with gift certificates, progressive slot unlock, Square invoice automation, and admin dashboard.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Author: Wine Tours Grapevine
  * Author URI: https://winetoursgrapevine.com
  * License: GPL v2 or later
@@ -24,7 +24,7 @@ if ( ! defined( 'WPINC' ) ) {
 /**
  * Current plugin version.
  */
-define( 'WTG2_VERSION', '1.0.5' );
+define( 'WTG2_VERSION', '1.0.6' );
 
 /**
  * Plugin directory path.
@@ -46,6 +46,19 @@ define( 'WTG2_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
  */
 if ( file_exists( WTG2_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
 	require_once WTG2_PLUGIN_DIR . 'vendor/autoload.php';
+}
+
+/**
+ * GitHub auto-updater — checks for new releases and enables one-click updates.
+ */
+if ( class_exists( 'YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory' ) ) {
+	$wtg2_update_checker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+		'https://github.com/wideglidemike-cyber/wtg2/',
+		__FILE__,
+		'wtg2'
+	);
+	$wtg2_update_checker->setBranch( 'main' );
+	$wtg2_update_checker->getVcsApi()->enableReleaseAssets();
 }
 
 /**

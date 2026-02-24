@@ -20,7 +20,7 @@ class WTG_Gravity_Forms {
 	 * Form IDs.
 	 */
 	const BOOKING_FORM_ID = 8;
-	const GIFT_CERT_FORM_ID = 9;
+	const GIFT_CERT_FORM_ID = 12;
 
 	/**
 	 * Booking Form Field IDs (Form 8).
