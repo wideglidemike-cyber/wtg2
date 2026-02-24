@@ -3,6 +3,7 @@
  *
  * Handles AJAX validation of gift certificate codes on the booking form.
  * When a valid code is entered, reduces the displayed GF total in real time.
+ * Hides the credit card field when the GC fully covers the deposit.
  *
  * @package WTG2
  */
@@ -15,6 +16,7 @@
 	const FIELD_ID = 14;
 	const FIELD_SELECTOR = '#input_' + FORM_ID + '_' + FIELD_ID;
 	const VALIDATION_DELAY = 800; // ms to wait after typing stops
+	const CC_FIELD_SELECTOR = '.gfield--type-square_creditcard, .gfield_creditcard, .gfield_stripe_creditcard';
 
 	let validationTimeout = null;
 	let lastValidatedCode = '';
@@ -59,6 +61,43 @@
 	function recalculateTotal() {
 		if (typeof gformCalculateTotalPrice === 'function') {
 			gformCalculateTotalPrice(FORM_ID);
+		}
+	}
+
+	/**
+	 * Get the current deposit total (before GC discount) by reading the displayed
+	 * GF total and adding back the current GC discount amount.
+	 */
+	function getDepositTotal() {
+		var displayedTotal = parseFloat(
+			$('#gform_' + FORM_ID + ' .ginput_total').first().text().replace(/[^0-9.]/g, '')
+		) || 0;
+		return displayedTotal + validatedCertAmount;
+	}
+
+	/**
+	 * Show or hide the credit card field based on whether the GC covers the deposit.
+	 */
+	function toggleCreditCardField() {
+		var $ccField = $(CC_FIELD_SELECTOR);
+		if ($ccField.length === 0) {
+			return;
+		}
+
+		var depositTotal = getDepositTotal();
+		var gcCoversDeposit = validatedCertAmount > 0 && validatedCertAmount >= depositTotal && depositTotal > 0;
+
+		if (gcCoversDeposit) {
+			$ccField.slideUp(200);
+			if ($ccField.prev('.wtg-gc-no-payment-msg').length === 0) {
+				$('<div class="wtg-gc-no-payment-msg" style="padding: 12px 16px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 10px; font-weight: 500;">Your gift certificate covers the deposit &mdash; no credit card needed.</div>')
+					.insertBefore($ccField)
+					.hide()
+					.fadeIn(200);
+			}
+		} else {
+			$ccField.slideDown(200);
+			$('.wtg-gc-no-payment-msg').fadeOut(200, function() { $(this).remove(); });
 		}
 	}
 
@@ -136,6 +175,7 @@
 						'Valid! Credit: $' + response.data.amount,
 						'success'
 					);
+					toggleCreditCardField();
 				} else {
 					// Clear discount on invalid code.
 					validatedCertAmount = 0;
@@ -145,6 +185,7 @@
 						response.data.message || 'Invalid gift certificate code.',
 						'error'
 					);
+					toggleCreditCardField();
 				}
 			},
 			error: function() {
@@ -155,6 +196,7 @@
 					'Unable to validate code. Please try again.',
 					'error'
 				);
+				toggleCreditCardField();
 			}
 		});
 	}
@@ -219,6 +261,7 @@
 			validatedCertAmount = 0;
 			recalculateTotal();
 		}
+		toggleCreditCardField();
 	}
 
 })(jQuery);
