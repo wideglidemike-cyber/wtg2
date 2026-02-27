@@ -55,6 +55,7 @@ class WTG_Admin {
 		require_once WTG2_PLUGIN_DIR . 'includes/admin/class-wtg-admin-gift-certificates.php';
 		require_once WTG2_PLUGIN_DIR . 'includes/admin/class-wtg-admin-date-overrides.php';
 		require_once WTG2_PLUGIN_DIR . 'includes/admin/class-wtg-admin-settings.php';
+		require_once WTG2_PLUGIN_DIR . 'includes/admin/class-wtg-admin-email-log.php';
 	}
 
 	/**

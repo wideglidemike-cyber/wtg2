@@ -100,6 +100,29 @@ class WTG_Admin_Settings {
 			'wtg_tour_config'
 		);
 
+		// Email Notifications Section.
+		add_settings_section(
+			'wtg_email_config',
+			__( 'Email Notifications', 'wtg2' ),
+			array( __CLASS__, 'email_config_section_callback' ),
+			self::OPTION_GROUP
+		);
+
+		// Admin Email.
+		register_setting( self::OPTION_GROUP, 'wtg_admin_email', array(
+			'type'              => 'string',
+			'default'           => get_option( 'admin_email' ),
+			'sanitize_callback' => 'sanitize_email',
+		) );
+
+		add_settings_field(
+			'wtg_admin_email',
+			__( 'Admin Notification Email', 'wtg2' ),
+			array( __CLASS__, 'admin_email_callback' ),
+			self::OPTION_GROUP,
+			'wtg_email_config'
+		);
+
 		// Square Integration Section.
 		add_settings_section(
 			'wtg_square_config',
@@ -297,6 +320,26 @@ class WTG_Admin_Settings {
 		<input type="number" name="wtg_invoice_hours_before" value="<?php echo esc_attr( $value ); ?>" min="1" max="168" class="regular-text">
 		<p class="description">
 			<?php esc_html_e( 'How many hours before the tour to send the Square invoice for balance due (Week 6 feature).', 'wtg2' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Email notifications section callback.
+	 */
+	public static function email_config_section_callback() {
+		echo '<p>' . esc_html__( 'Configure email notification settings.', 'wtg2' ) . '</p>';
+	}
+
+	/**
+	 * Admin email field callback.
+	 */
+	public static function admin_email_callback() {
+		$value = get_option( 'wtg_admin_email', get_option( 'admin_email' ) );
+		?>
+		<input type="email" name="wtg_admin_email" value="<?php echo esc_attr( $value ); ?>" class="regular-text">
+		<p class="description">
+			<?php esc_html_e( 'Email address to receive admin notifications for new bookings and gift certificate purchases. Leave blank to disable admin notifications.', 'wtg2' ); ?>
 		</p>
 		<?php
 	}

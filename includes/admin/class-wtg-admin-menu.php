@@ -97,6 +97,16 @@ class WTG_Admin_Menu {
 			array( $this, 'render_date_overrides' )
 		);
 
+		// Email Log submenu.
+		add_submenu_page(
+			'wine-tours',
+			__( 'Email Log', 'wtg2' ),
+			__( 'Email Log', 'wtg2' ),
+			'manage_options',
+			'wtg-email-log',
+			array( $this, 'render_email_log' )
+		);
+
 		// Settings submenu.
 		add_submenu_page(
 			'wine-tours',
@@ -150,6 +160,17 @@ class WTG_Admin_Menu {
 		}
 
 		WTG_Admin_Date_Overrides::render();
+	}
+
+	/**
+	 * Render email log page.
+	 */
+	public function render_email_log() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( __( 'You do not have sufficient permissions to access this page.', 'wtg2' ) );
+		}
+
+		WTG_Admin_Email_Log::render();
 	}
 
 	/**

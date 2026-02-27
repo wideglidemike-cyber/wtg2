@@ -152,6 +152,7 @@ class WTG_Gravity_Forms {
 			);
 			WTG_Email_Templates::send_gift_certificate_purchaser( $gc_data );
 			WTG_Email_Templates::send_gift_certificate_recipient( $gc_data );
+			WTG_Email_Templates::send_admin_gc_notification( $gc_data );
 		}
 	}
 
@@ -411,6 +412,9 @@ class WTG_Gravity_Forms {
 				} elseif ( 'deposit_paid' === $payment_status ) {
 					WTG_Email_Templates::send_deposit_confirmation( $booking );
 				}
+
+				// Send admin notification.
+				WTG_Email_Templates::send_admin_booking_notification( $booking );
 			}
 		}
 	}

@@ -128,8 +128,24 @@ class WTG_Activator {
 
 		dbDelta( $sql_overrides );
 
+		// Table 4: Email Log.
+		$table_email_log = $prefix . 'wtg_email_log';
+		$sql_email_log   = "CREATE TABLE {$table_email_log} (
+			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			to_email varchar(255) NOT NULL,
+			subject varchar(255) NOT NULL,
+			email_type varchar(50) DEFAULT 'general',
+			status enum('sent','failed') DEFAULT 'sent',
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY idx_email_type (email_type),
+			KEY idx_created_at (created_at)
+		) {$charset_collate};";
+
+		dbDelta( $sql_email_log );
+
 		// Store database version for future migrations.
-		update_option( 'wtg_db_version', '1.0.0' );
+		update_option( 'wtg_db_version', '1.1.0' );
 	}
 
 	/**
@@ -153,6 +169,11 @@ class WTG_Activator {
 
 		if ( ! get_option( 'wtg_unlock_threshold' ) ) {
 			add_option( 'wtg_unlock_threshold', 10 );
+		}
+
+		// Admin notification email (defaults to WP admin email).
+		if ( ! get_option( 'wtg_admin_email' ) ) {
+			add_option( 'wtg_admin_email', get_option( 'admin_email' ) );
 		}
 	}
 

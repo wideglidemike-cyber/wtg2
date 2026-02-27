@@ -43,7 +43,7 @@ class WTG_Email_Templates {
 			'balance_due'    => number_format( $balance_with_tax, 2 ),
 		) );
 
-		self::send_email( $to, $subject, $message );
+		self::send_email( $to, $subject, $message, 'deposit_confirmation' );
 	}
 
 	/**
@@ -73,7 +73,7 @@ class WTG_Email_Templates {
 			'discount_applied' => number_format( $discount_applied, 2 ),
 		) );
 
-		self::send_email( $to, $subject, $message );
+		self::send_email( $to, $subject, $message, 'balance_confirmation' );
 	}
 
 	/**
@@ -99,7 +99,7 @@ class WTG_Email_Templates {
 			'invoice_url'   => $invoice_url,
 		) );
 
-		self::send_email( $to, $subject, $message );
+		self::send_email( $to, $subject, $message, 'balance_invoice' );
 	}
 
 	/**
@@ -123,7 +123,7 @@ class WTG_Email_Templates {
 			'arrival_time'  => self::get_arrival_time( $booking['time_slot'] ),
 		) );
 
-		self::send_email( $to, $subject, $message );
+		self::send_email( $to, $subject, $message, 'manual_booking' );
 	}
 
 	/**
@@ -144,7 +144,7 @@ class WTG_Email_Templates {
 			'message'         => $gc_data['message'],
 		) );
 
-		self::send_email( $to, $subject, $message );
+		self::send_email( $to, $subject, $message, 'gc_purchaser' );
 	}
 
 	/**
@@ -164,7 +164,72 @@ class WTG_Email_Templates {
 			'message'        => $gc_data['message'],
 		) );
 
-		self::send_email( $to, $subject, $message );
+		self::send_email( $to, $subject, $message, 'gc_recipient' );
+	}
+
+	/**
+	 * Send admin notification for gift certificate purchase.
+	 *
+	 * @param array $gc_data Gift certificate data.
+	 */
+	public static function send_admin_gc_notification( $gc_data ) {
+		$admin_email = get_option( 'wtg_admin_email', '' );
+		if ( empty( $admin_email ) ) {
+			return;
+		}
+
+		$subject = sprintf( 'New Gift Certificate Purchase - %s', $gc_data['code'] );
+
+		$message = self::get_email_template( 'admin-gc-notification', array(
+			'purchaser_name'  => $gc_data['purchaser_name'],
+			'purchaser_email' => $gc_data['purchaser_email'],
+			'recipient_name'  => $gc_data['recipient_name'],
+			'recipient_email' => $gc_data['recipient_email'],
+			'code'            => $gc_data['code'],
+			'amount'          => number_format( floatval( $gc_data['amount'] ), 2 ),
+			'message'         => $gc_data['message'],
+			'purchase_date'   => current_time( 'F j, Y g:i A' ),
+		) );
+
+		self::send_email( $admin_email, $subject, $message, 'admin_gc' );
+	}
+
+	/**
+	 * Send admin notification for new booking.
+	 *
+	 * @param object|array $booking Booking data.
+	 */
+	public static function send_admin_booking_notification( $booking ) {
+		$admin_email = get_option( 'wtg_admin_email', '' );
+		if ( empty( $admin_email ) ) {
+			return;
+		}
+
+		$booking = (object) $booking;
+
+		$subject = sprintf(
+			'New Booking - %s (%s)',
+			trim( $booking->first_name . ' ' . $booking->last_name ),
+			$booking->booking_code
+		);
+
+		$discount = floatval( $booking->discount_applied ?? 0 );
+
+		$message = self::get_email_template( 'admin-booking-notification', array(
+			'customer_name'    => trim( $booking->first_name . ' ' . $booking->last_name ),
+			'customer_email'   => $booking->email,
+			'booking_code'     => $booking->booking_code,
+			'tour_date'        => date( 'F j, Y', strtotime( $booking->tour_date ) ),
+			'time_slot'        => self::get_time_slot_label( $booking->time_slot ),
+			'tickets'          => $booking->tickets,
+			'deposit_amount'   => number_format( floatval( $booking->deposit_amount ), 2 ),
+			'balance_due'      => number_format( floatval( $booking->balance_due ), 2 ),
+			'payment_status'   => $booking->payment_status,
+			'discount_applied' => $discount > 0 ? number_format( $discount, 2 ) : '',
+			'booking_date'     => current_time( 'F j, Y g:i A' ),
+		) );
+
+		self::send_email( $admin_email, $subject, $message, 'admin_booking' );
 	}
 
 	/**
@@ -201,13 +266,14 @@ class WTG_Email_Templates {
 	}
 
 	/**
-	 * Send email via WordPress wp_mail.
+	 * Send email via WordPress wp_mail and log the result.
 	 *
-	 * @param string $to      Recipient email.
-	 * @param string $subject Email subject.
-	 * @param string $message Email body (HTML).
+	 * @param string $to         Recipient email.
+	 * @param string $subject    Email subject.
+	 * @param string $message    Email body (HTML).
+	 * @param string $email_type Optional type for logging (e.g. 'gc_purchaser', 'admin_booking').
 	 */
-	private static function send_email( $to, $subject, $message ) {
+	private static function send_email( $to, $subject, $message, $email_type = 'general' ) {
 		$headers = array(
 			'Content-Type: text/html; charset=UTF-8',
 			'From: Wine Tours Grapevine <noreply@winetoursgrapevine.com>',
@@ -220,6 +286,55 @@ class WTG_Email_Templates {
 		} else {
 			error_log( sprintf( 'WTG2: Failed to send email to %s - %s', $to, $subject ) );
 		}
+
+		self::log_email( $to, $subject, $email_type, $sent ? 'sent' : 'failed' );
+	}
+
+	/**
+	 * Log an email send attempt to the database.
+	 *
+	 * @param string $to         Recipient email.
+	 * @param string $subject    Email subject.
+	 * @param string $email_type Email type identifier.
+	 * @param string $status     'sent' or 'failed'.
+	 */
+	private static function log_email( $to, $subject, $email_type, $status ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'wtg_email_log';
+
+		// Silently skip if the table doesn't exist yet (pre-activation).
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+
+		$wpdb->insert(
+			$table,
+			array(
+				'to_email'   => $to,
+				'subject'    => $subject,
+				'email_type' => $email_type,
+				'status'     => $status,
+				'created_at' => current_time( 'mysql' ),
+			),
+			array( '%s', '%s', '%s', '%s', '%s' )
+		);
+	}
+
+	/**
+	 * Get email log entries for admin display.
+	 *
+	 * @param int $limit Number of entries to return.
+	 * @return array Log entries.
+	 */
+	public static function get_log( $limit = 50 ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'wtg_email_log';
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} ORDER BY created_at DESC LIMIT %d",
+				$limit
+			)
+		);
 	}
 
 	/**
