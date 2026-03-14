@@ -64,7 +64,10 @@ class WTG_Date_Picker_Controller {
 	 * @param int $count Number of weekends to include (default: 8).
 	 * @return array Array of date options with 'value' and 'label' keys.
 	 */
-	public static function get_date_options( $count = 8 ) {
+	public static function get_date_options( $count = 0 ) {
+		if ( 0 === $count ) {
+			$count = (int) get_option( 'wtg_booking_weeks_ahead', 26 );
+		}
 		$weekends = self::get_upcoming_weekends( $count );
 		$options = array();
 

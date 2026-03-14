@@ -127,8 +127,9 @@ class WTG_Square_Invoice {
 				->customerId( $customer_id )
 				->build();
 
+			// Due date is the day before the tour so payment is settled in advance.
+			$due_date = date( 'Y-m-d', strtotime( $booking['tour_date'] . ' -1 day' ) );
 			// Square requires due date to be today or later.
-			$due_date = $booking['tour_date'];
 			if ( strtotime( $due_date ) < strtotime( 'today' ) ) {
 				$due_date = date( 'Y-m-d' );
 			}

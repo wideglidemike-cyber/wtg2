@@ -85,6 +85,21 @@ class WTG_Admin_Settings {
 			'wtg_tour_config'
 		);
 
+		// Booking Window (weeks ahead).
+		register_setting( self::OPTION_GROUP, 'wtg_booking_weeks_ahead', array(
+			'type'              => 'integer',
+			'default'           => 26,
+			'sanitize_callback' => 'absint',
+		) );
+
+		add_settings_field(
+			'wtg_booking_weeks_ahead',
+			__( 'Booking Window', 'wtg2' ),
+			array( __CLASS__, 'booking_weeks_ahead_callback' ),
+			self::OPTION_GROUP,
+			'wtg_tour_config'
+		);
+
 		// Invoice Hours Before.
 		register_setting( self::OPTION_GROUP, 'wtg_invoice_hours_before', array(
 			'type'              => 'integer',
@@ -307,6 +322,19 @@ class WTG_Admin_Settings {
 		<input type="number" name="wtg_made_threshold" value="<?php echo esc_attr( $value ); ?>" min="1" max="50" class="regular-text">
 		<p class="description">
 			<?php esc_html_e( 'Minimum paid tickets for a tour to be "made" (confirmed). Seats show as pending/yellow until this number is reached, then switch to confirmed/green.', 'wtg2' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Booking weeks ahead field callback.
+	 */
+	public static function booking_weeks_ahead_callback() {
+		$value = get_option( 'wtg_booking_weeks_ahead', 26 );
+		?>
+		<input type="number" name="wtg_booking_weeks_ahead" value="<?php echo esc_attr( $value ); ?>" min="4" max="52" class="regular-text">
+		<p class="description">
+			<?php esc_html_e( 'How many weeks of upcoming dates to show in the booking form date picker. Default 26 (~6 months).', 'wtg2' ); ?>
 		</p>
 		<?php
 	}

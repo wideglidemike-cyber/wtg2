@@ -84,18 +84,17 @@ class WTG_Admin_Bookings {
 			}
 
 			if ( $booking_id ) {
-				// Check availability if tour date or time slot changed.
+				// Check capacity (but not cascade/unlock rules) if tour date or time slot changed.
+				// Admins can move bookings to any slot — only seat capacity is enforced.
 				$existing = WTG_Booking::get_by_id( $booking_id );
 
 				if ( $existing && ( $existing['tour_date'] !== $data['tour_date'] || $existing['time_slot'] !== $data['time_slot'] ) ) {
-					$availability = WTG_Availability_Controller::check_slot_availability(
-						$data['tour_date'],
-						$data['time_slot'],
-						$data['tickets']
-					);
+					$tickets_sold = WTG_Booking::count_tickets_sold( $data['tour_date'], $data['time_slot'] );
+					$capacity     = WTG_Availability_Controller::get_capacity();
+					$remaining    = $capacity - $tickets_sold;
 
-					if ( ! $availability['available'] ) {
-						$error_reason = urlencode( $availability['reason'] );
+					if ( $remaining < $data['tickets'] ) {
+						$error_reason = urlencode( sprintf( 'Only %d seat(s) remaining in that slot. You requested %d.', max( 0, $remaining ), $data['tickets'] ) );
 						wp_redirect( admin_url( 'admin.php?page=wtg-bookings&action=edit&id=' . $booking_id . '&error=slot_unavailable&reason=' . $error_reason ) );
 						exit;
 					}
