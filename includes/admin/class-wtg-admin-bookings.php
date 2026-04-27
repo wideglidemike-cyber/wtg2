@@ -241,6 +241,64 @@ class WTG_Admin_Bookings {
 				<?php endif; ?>
 			</form>
 
+			<!-- Pending Invoice Banner -->
+			<?php
+			$invoice_hours    = get_option( 'wtg_invoice_hours_before', 72 );
+			$pending_drafts   = WTG_Booking::get_pending_invoices( $invoice_hours );
+			$missing_invoices = WTG_Booking::get_bookings_missing_invoices( $invoice_hours );
+			$total_pending    = count( $pending_drafts ) + count( $missing_invoices );
+			if ( $total_pending > 0 ) :
+				?>
+				<div class="notice notice-warning wtg-pending-invoices-notice" style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+					<span>
+						<strong><?php echo esc_html( $total_pending ); ?></strong>
+						<?php echo esc_html( sprintf(
+							_n(
+								' booking needs a balance invoice sent (within %d hours of tour).',
+								' bookings need balance invoices sent (within %d hours of tour).',
+								$total_pending,
+								'wtg2'
+							),
+							$invoice_hours
+						) ); ?>
+						<?php if ( count( $missing_invoices ) > 0 ) : ?>
+							<em><?php echo esc_html( count( $missing_invoices ) ); ?> have no Square invoice yet — will be created &amp; sent.</em>
+						<?php endif; ?>
+					</span>
+					<button id="wtg-send-all-invoices" class="button button-primary" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wtg_admin_send_all_invoices' ) ); ?>">
+						<?php esc_html_e( 'Send Pending Invoices Now', 'wtg2' ); ?>
+					</button>
+					<span id="wtg-send-invoices-result" style="font-style: italic;"></span>
+				</div>
+				<script>
+				(function($) {
+					$('#wtg-send-all-invoices').on('click', function() {
+						var $btn = $(this);
+						var $result = $('#wtg-send-invoices-result');
+						$btn.prop('disabled', true).text('Sending...');
+						$result.text('');
+						$.post(ajaxurl, {
+							action: 'wtg_admin_send_all_invoices',
+							nonce: $btn.data('nonce')
+						}, function(response) {
+							if (response.success) {
+								$result.css('color', 'green').text(response.data.message);
+								if (response.data.count > 0) {
+									setTimeout(function() { location.reload(); }, 2000);
+								}
+							} else {
+								$result.css('color', 'red').text('Error: ' + (response.data ? response.data.message : 'Unknown error'));
+								$btn.prop('disabled', false).text('Send All Pending Invoices');
+							}
+						}).fail(function() {
+							$result.css('color', 'red').text('Request failed. Try again.');
+							$btn.prop('disabled', false).text('Send All Pending Invoices');
+						});
+					});
+				})(jQuery);
+				</script>
+			<?php endif; ?>
+
 			<!-- Bookings Table -->
 			<div class="wtg-table-wrapper">
 				<table class="wtg-table">

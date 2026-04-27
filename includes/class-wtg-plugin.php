@@ -113,6 +113,12 @@ class WTG_Plugin {
 
 		// Cron hooks.
 		add_action( 'wtg_send_pending_invoices', array( $this, 'process_pending_invoices' ) );
+
+		// Self-heal: re-register cron if it somehow got unscheduled.
+		add_action( 'init', array( $this, 'ensure_cron_scheduled' ) );
+
+		// Admin AJAX: manually send all pending invoices.
+		add_action( 'wp_ajax_wtg_admin_send_all_invoices', array( $this, 'ajax_admin_send_all_invoices' ) );
 	}
 
 	/**
@@ -214,6 +220,93 @@ class WTG_Plugin {
 				) );
 			}
 		}
+	}
+
+	/**
+	 * Ensure the invoice cron event is scheduled. Re-registers if missing.
+	 * Runs on every `init` so it self-heals after plugin updates or cron flushes.
+	 */
+	public function ensure_cron_scheduled() {
+		if ( ! wp_next_scheduled( 'wtg_send_pending_invoices' ) ) {
+			wp_schedule_event( time(), 'hourly', 'wtg_send_pending_invoices' );
+		}
+	}
+
+	/**
+	 * Admin AJAX: send invoices for upcoming tours within the configured window.
+	 *
+	 * Handles two cases:
+	 * 1. Bookings with an existing Square draft (publish it).
+	 * 2. Bookings with no Square invoice at all (create it, then publish it).
+	 */
+	public function ajax_admin_send_all_invoices() {
+		check_ajax_referer( 'wtg_admin_send_all_invoices', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Unauthorized.' ) );
+		}
+
+		$hours_before = get_option( 'wtg_invoice_hours_before', 72 );
+		$sent         = 0;
+		$failed       = 0;
+		$errors       = array();
+
+		// Case 1: bookings that already have a Square draft invoice — just publish.
+		$with_draft = WTG_Booking::get_pending_invoices( $hours_before );
+		foreach ( $with_draft as $booking ) {
+			$result = WTG_Square_Invoice::publish_invoice( $booking['balance_square_id'], $booking['id'] );
+			if ( $result['success'] ) {
+				WTG_Booking::update( $booking['id'], array( 'invoice_sent_at' => current_time( 'mysql' ) ) );
+				WTG_Email_Templates::send_balance_invoice( $booking, $result['invoice_url'] );
+				$sent++;
+			} else {
+				$failed++;
+				$errors[] = sprintf( 'Booking #%d (%s) publish failed: %s', $booking['id'], $booking['email'], $result['error'] );
+				error_log( sprintf( 'WTG2: Manual publish failed for booking %d: %s', $booking['id'], $result['error'] ) );
+			}
+		}
+
+		// Case 2: bookings with NO Square invoice yet — create then immediately publish.
+		$missing = WTG_Booking::get_bookings_missing_invoices( $hours_before );
+		foreach ( $missing as $booking ) {
+			$create_result = WTG_Square_Invoice::create_balance_invoice( $booking['id'], $booking );
+			if ( ! $create_result['success'] ) {
+				$failed++;
+				$errors[] = sprintf( 'Booking #%d (%s) create failed: %s', $booking['id'], $booking['email'], $create_result['error'] );
+				error_log( sprintf( 'WTG2: Invoice creation failed for booking %d: %s', $booking['id'], $create_result['error'] ) );
+				continue;
+			}
+
+			$invoice_id = $create_result['invoice_id'];
+			WTG_Booking::update( $booking['id'], array( 'balance_square_id' => $invoice_id ) );
+
+			$publish_result = WTG_Square_Invoice::publish_invoice( $invoice_id, $booking['id'] );
+			if ( $publish_result['success'] ) {
+				WTG_Booking::update( $booking['id'], array( 'invoice_sent_at' => current_time( 'mysql' ) ) );
+				WTG_Email_Templates::send_balance_invoice( $booking, $publish_result['invoice_url'] );
+				$sent++;
+			} else {
+				$failed++;
+				$errors[] = sprintf( 'Booking #%d (%s) publish failed: %s', $booking['id'], $booking['email'], $publish_result['error'] );
+				error_log( sprintf( 'WTG2: Invoice publish failed for booking %d: %s', $booking['id'], $publish_result['error'] ) );
+			}
+		}
+
+		if ( $sent === 0 && $failed === 0 ) {
+			wp_send_json_success( array( 'message' => 'No pending invoices found.', 'count' => 0 ) );
+		}
+
+		$message = sprintf( '%d invoice(s) sent successfully.', $sent );
+		if ( $failed > 0 ) {
+			$message .= sprintf( ' %d failed — check error log.', $failed );
+		}
+
+		wp_send_json_success( array(
+			'message' => $message,
+			'count'   => $sent,
+			'failed'  => $failed,
+			'errors'  => $errors,
+		) );
 	}
 
 	/**

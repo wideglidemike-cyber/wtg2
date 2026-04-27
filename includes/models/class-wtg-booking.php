@@ -375,6 +375,54 @@ class WTG_Booking {
 	}
 
 	/**
+	 * Get ALL bookings with unsent draft invoices, regardless of tour date.
+	 *
+	 * Used for the admin manual "send all" trigger. Includes past tours that
+	 * the cron missed because their date has already passed.
+	 *
+	 * @return array Array of booking arrays.
+	 */
+	public static function get_all_unsent_invoices() {
+		global $wpdb;
+
+		return $wpdb->get_results(
+			"SELECT * FROM " . self::get_table_name() . "
+			WHERE balance_square_id IS NOT NULL
+			AND invoice_sent_at IS NULL
+			AND payment_status = 'deposit_paid'
+			ORDER BY tour_date ASC",
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Get bookings that need a Square invoice created from scratch.
+	 *
+	 * These are bookings where no invoice was ever created (balance_square_id IS NULL)
+	 * but a balance is owed. Used by the admin "Create & Send" button.
+	 *
+	 * @param int $hours_before Hours window from now to tour date.
+	 * @return array Array of booking arrays.
+	 */
+	public static function get_bookings_missing_invoices( $hours_before = 120 ) {
+		global $wpdb;
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM " . self::get_table_name() . "
+				WHERE balance_square_id IS NULL
+				AND invoice_sent_at IS NULL
+				AND payment_status = 'deposit_paid'
+				AND balance_due > 0
+				AND tour_date BETWEEN CURDATE() AND DATE_ADD(NOW(), INTERVAL %d HOUR)
+				ORDER BY tour_date ASC",
+				$hours_before
+			),
+			ARRAY_A
+		);
+	}
+
+	/**
 	 * Get all bookings for a specific tour date.
 	 *
 	 * @param string $tour_date Tour date (Y-m-d format).
