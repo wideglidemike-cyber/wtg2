@@ -188,6 +188,20 @@ class WTG_Admin_Settings {
 			'wtg_twilio_config'
 		);
 
+		register_setting( self::OPTION_GROUP, 'wtg_sms_message_template', array(
+			'type'              => 'string',
+			'default'           => "Hey {first_name}! Don't miss the bus — your Wine Tours Grapevine tour is TOMORROW at {time} and your balance invoice is still due. Pay here: {invoice_url} 🍷",
+			'sanitize_callback' => 'sanitize_textarea_field',
+		) );
+
+		add_settings_field(
+			'wtg_sms_message_template',
+			__( 'SMS Message Template', 'wtg2' ),
+			array( __CLASS__, 'sms_message_template_callback' ),
+			self::OPTION_GROUP,
+			'wtg_twilio_config'
+		);
+
 		// Square Integration Section.
 		add_settings_section(
 			'wtg_square_config',
@@ -506,6 +520,24 @@ class WTG_Admin_Settings {
 		?>
 		<input type="text" name="wtg_twilio_from_number" value="<?php echo esc_attr( $value ); ?>" class="regular-text" placeholder="+18176235583">
 		<p class="description"><?php esc_html_e( 'Your Twilio phone number in E.164 format (e.g. +18176235583).', 'wtg2' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * SMS message template field callback.
+	 */
+	public static function sms_message_template_callback() {
+		$default = "Hey {first_name}! Don't miss the bus — your Wine Tours Grapevine tour is TOMORROW at {time} and your balance invoice is still due. Pay here: {invoice_url} 🍷";
+		$value   = get_option( 'wtg_sms_message_template', $default );
+		?>
+		<textarea name="wtg_sms_message_template" rows="4" class="large-text"><?php echo esc_textarea( $value ); ?></textarea>
+		<p class="description">
+			<?php esc_html_e( 'Available placeholders: ', 'wtg2' ); ?>
+			<code>{first_name}</code> — <?php esc_html_e( 'customer\'s first name', 'wtg2' ); ?> &nbsp;
+			<code>{time}</code> — <?php esc_html_e( 'tour time (e.g. 11:00 AM)', 'wtg2' ); ?> &nbsp;
+			<code>{invoice_url}</code> — <?php esc_html_e( 'Square payment link', 'wtg2' ); ?><br>
+			<?php esc_html_e( 'Standard SMS is 160 characters. Over that splits into 2 messages (still fine, just costs double).', 'wtg2' ); ?>
+		</p>
 		<?php
 	}
 

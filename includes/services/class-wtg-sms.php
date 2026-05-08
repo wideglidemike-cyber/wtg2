@@ -89,7 +89,14 @@ class WTG_SMS {
 		$first_name  = $booking['first_name'] ?? 'there';
 		$time_label  = self::get_time_label( $booking['time_slot'] ?? '' );
 
-		$message = "Hey {$first_name}! Don't miss the bus — your Wine Tours Grapevine tour is TOMORROW at {$time_label} and your balance invoice is still due. Pay here: {$invoice_url} 🍷";
+		$default  = "Hey {first_name}! Don't miss the bus — your Wine Tours Grapevine tour is TOMORROW at {time} and your balance invoice is still due. Pay here: {invoice_url} 🍷";
+		$template = get_option( 'wtg_sms_message_template', $default );
+
+		$message = str_replace(
+			array( '{first_name}', '{time}', '{invoice_url}' ),
+			array( $first_name, $time_label, $invoice_url ),
+			$template
+		);
 
 		return self::send( $phone, $message );
 	}
