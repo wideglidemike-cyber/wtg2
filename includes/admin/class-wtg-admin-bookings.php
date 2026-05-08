@@ -299,56 +299,56 @@ class WTG_Admin_Bookings {
 				</script>
 			<?php endif; ?>
 
-			<!-- Pending SMS Banner -->
-			<?php
-			$pending_sms = WTG_Booking::get_pending_sms_reminders();
-			if ( ! empty( $pending_sms ) ) :
-				?>
-				<div class="notice notice-info wtg-pending-sms-notice" style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-					<span>
+			<!-- SMS Reminders Bar (always visible) -->
+			<?php $pending_sms = WTG_Booking::get_pending_sms_reminders(); ?>
+			<div class="notice notice-info wtg-pending-sms-notice" style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+				<span>
+					<?php if ( ! empty( $pending_sms ) ) : ?>
 						<strong><?php echo esc_html( count( $pending_sms ) ); ?></strong>
 						<?php echo esc_html( sprintf(
 							_n(
-								' booking has a tour tomorrow with an unpaid invoice and no SMS reminder sent yet.',
-								' bookings have tours tomorrow with unpaid invoices and no SMS reminders sent yet.',
+								' booking has a tour tomorrow with an unsent SMS reminder.',
+								' bookings have tours tomorrow with unsent SMS reminders.',
 								count( $pending_sms ),
 								'wtg2'
 							)
 						) ); ?>
-					</span>
-					<button id="wtg-send-all-sms" class="button button-primary" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wtg_admin_send_all_sms' ) ); ?>">
-						<?php esc_html_e( 'Send SMS Reminders Now', 'wtg2' ); ?>
-					</button>
-					<span id="wtg-send-sms-result" style="font-style: italic;"></span>
-				</div>
-				<script>
-				(function($) {
-					$('#wtg-send-all-sms').on('click', function() {
-						var $btn    = $(this);
-						var $result = $('#wtg-send-sms-result');
-						$btn.prop('disabled', true).text('Sending...');
-						$result.text('');
-						$.post(ajaxurl, {
-							action: 'wtg_admin_send_all_sms',
-							nonce:  $btn.data('nonce')
-						}, function(response) {
-							if (response.success) {
-								$result.css('color', 'green').text(response.data.message);
-								if (response.data.count > 0) {
-									setTimeout(function() { location.reload(); }, 2000);
-								}
-							} else {
-								$result.css('color', 'red').text('Error: ' + (response.data ? response.data.message : 'Unknown error'));
-								$btn.prop('disabled', false).text('Send SMS Reminders Now');
+					<?php else : ?>
+						<?php esc_html_e( 'No SMS reminders pending for tomorrow\'s tours.', 'wtg2' ); ?>
+					<?php endif; ?>
+				</span>
+				<button id="wtg-send-all-sms" class="button button-secondary" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wtg_admin_send_all_sms' ) ); ?>">
+					<?php esc_html_e( 'Send SMS Reminders Now', 'wtg2' ); ?>
+				</button>
+				<span id="wtg-send-sms-result" style="font-style: italic;"></span>
+			</div>
+			<script>
+			(function($) {
+				$('#wtg-send-all-sms').on('click', function() {
+					var $btn    = $(this);
+					var $result = $('#wtg-send-sms-result');
+					$btn.prop('disabled', true).text('Sending...');
+					$result.text('');
+					$.post(ajaxurl, {
+						action: 'wtg_admin_send_all_sms',
+						nonce:  $btn.data('nonce')
+					}, function(response) {
+						if (response.success) {
+							$result.css('color', 'green').text(response.data.message);
+							if (response.data.count > 0) {
+								setTimeout(function() { location.reload(); }, 2000);
 							}
-						}).fail(function() {
-							$result.css('color', 'red').text('Request failed. Try again.');
+						} else {
+							$result.css('color', 'red').text('Error: ' + (response.data ? response.data.message : 'Unknown error'));
 							$btn.prop('disabled', false).text('Send SMS Reminders Now');
-						});
+						}
+					}).fail(function() {
+						$result.css('color', 'red').text('Request failed. Try again.');
+						$btn.prop('disabled', false).text('Send SMS Reminders Now');
 					});
-				})(jQuery);
-				</script>
-			<?php endif; ?>
+				});
+			})(jQuery);
+			</script>
 
 			<!-- Bookings Table -->
 			<div class="wtg-table-wrapper">

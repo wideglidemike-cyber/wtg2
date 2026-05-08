@@ -3,7 +3,7 @@
  * Plugin Name: Wine Tours Grapevine 2
  * Plugin URI: https://winetoursgrapevine.com
  * Description: Complete booking system for wine tours with gift certificates, progressive slot unlock, Square invoice automation, and admin dashboard.
- * Version: 1.0.12
+ * Version: 1.0.13
  * Author: Wine Tours Grapevine
  * Author URI: https://winetoursgrapevine.com
  * License: GPL v2 or later
@@ -24,7 +24,7 @@ if ( ! defined( 'WPINC' ) ) {
 /**
  * Current plugin version.
  */
-define( 'WTG2_VERSION', '1.0.12' );
+define( 'WTG2_VERSION', '1.0.13' );
 
 /**
  * Plugin directory path.
