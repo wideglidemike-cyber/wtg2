@@ -83,6 +83,9 @@ class WTG_Activator {
 		// Migration: Support manual bookings (nullable gf_entry_id, manual status).
 		self::migrate_manual_booking_support();
 
+		// Migration: Add invoice_url and sms_sent_at for SMS reminders.
+		self::migrate_sms_columns();
+
 		// Table 2: Gift Certificates.
 		$table_gift_certs = $prefix . 'wtg_gift_certificates';
 		$sql_gift_certs   = "CREATE TABLE {$table_gift_certs} (
@@ -145,7 +148,7 @@ class WTG_Activator {
 		dbDelta( $sql_email_log );
 
 		// Store database version for future migrations.
-		update_option( 'wtg_db_version', '1.1.0' );
+		update_option( 'wtg_db_version', '1.2.0' );
 	}
 
 	/**
@@ -181,9 +184,11 @@ class WTG_Activator {
 	 * Schedule WP Cron events.
 	 */
 	private static function schedule_cron() {
-		// Schedule hourly cron for invoice automation (Week 6).
 		if ( ! wp_next_scheduled( 'wtg_send_pending_invoices' ) ) {
 			wp_schedule_event( time(), 'hourly', 'wtg_send_pending_invoices' );
+		}
+		if ( ! wp_next_scheduled( 'wtg_send_sms_reminders' ) ) {
+			wp_schedule_event( time(), 'hourly', 'wtg_send_sms_reminders' );
 		}
 	}
 
@@ -335,6 +340,36 @@ class WTG_Activator {
 
 		if ( $col_type && strpos( $col_type, "'manual'" ) === false ) {
 			$wpdb->query( "ALTER TABLE {$table} MODIFY payment_status enum('pending','deposit_paid','paid_full','refunded','manual') DEFAULT 'pending'" );
+		}
+	}
+
+	/**
+	 * Add invoice_url and sms_sent_at columns for SMS reminders.
+	 */
+	private static function migrate_sms_columns() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'wtg_bookings';
+
+		$col = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'invoice_url'",
+				DB_NAME,
+				$table
+			)
+		);
+		if ( empty( $col ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN invoice_url varchar(500) DEFAULT NULL AFTER invoice_sent_at" );
+		}
+
+		$col = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'sms_sent_at'",
+				DB_NAME,
+				$table
+			)
+		);
+		if ( empty( $col ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN sms_sent_at datetime DEFAULT NULL AFTER invoice_url" );
 		}
 	}
 }

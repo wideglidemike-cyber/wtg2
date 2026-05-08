@@ -210,7 +210,7 @@ class WTG_Admin_Bookings {
 		<div class="wrap wtg-admin-page">
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'Bookings', 'wtg2' ); ?></h1>
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=wtg-bookings&action=new' ) ); ?>" class="page-title-action">
-				<?php esc_html_e( 'Add New', 'wtg2' ); ?>
+				<?php esc_html_e( 'Add Manual Booking', 'wtg2' ); ?>
 			</a>
 
 			<!-- Search Box -->
@@ -293,6 +293,57 @@ class WTG_Admin_Bookings {
 						}).fail(function() {
 							$result.css('color', 'red').text('Request failed. Try again.');
 							$btn.prop('disabled', false).text('Send All Pending Invoices');
+						});
+					});
+				})(jQuery);
+				</script>
+			<?php endif; ?>
+
+			<!-- Pending SMS Banner -->
+			<?php
+			$pending_sms = WTG_Booking::get_pending_sms_reminders();
+			if ( ! empty( $pending_sms ) ) :
+				?>
+				<div class="notice notice-info wtg-pending-sms-notice" style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+					<span>
+						<strong><?php echo esc_html( count( $pending_sms ) ); ?></strong>
+						<?php echo esc_html( sprintf(
+							_n(
+								' booking has a tour tomorrow with an unpaid invoice and no SMS reminder sent yet.',
+								' bookings have tours tomorrow with unpaid invoices and no SMS reminders sent yet.',
+								count( $pending_sms ),
+								'wtg2'
+							)
+						) ); ?>
+					</span>
+					<button id="wtg-send-all-sms" class="button button-primary" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wtg_admin_send_all_sms' ) ); ?>">
+						<?php esc_html_e( 'Send SMS Reminders Now', 'wtg2' ); ?>
+					</button>
+					<span id="wtg-send-sms-result" style="font-style: italic;"></span>
+				</div>
+				<script>
+				(function($) {
+					$('#wtg-send-all-sms').on('click', function() {
+						var $btn    = $(this);
+						var $result = $('#wtg-send-sms-result');
+						$btn.prop('disabled', true).text('Sending...');
+						$result.text('');
+						$.post(ajaxurl, {
+							action: 'wtg_admin_send_all_sms',
+							nonce:  $btn.data('nonce')
+						}, function(response) {
+							if (response.success) {
+								$result.css('color', 'green').text(response.data.message);
+								if (response.data.count > 0) {
+									setTimeout(function() { location.reload(); }, 2000);
+								}
+							} else {
+								$result.css('color', 'red').text('Error: ' + (response.data ? response.data.message : 'Unknown error'));
+								$btn.prop('disabled', false).text('Send SMS Reminders Now');
+							}
+						}).fail(function() {
+							$result.css('color', 'red').text('Request failed. Try again.');
+							$btn.prop('disabled', false).text('Send SMS Reminders Now');
 						});
 					});
 				})(jQuery);

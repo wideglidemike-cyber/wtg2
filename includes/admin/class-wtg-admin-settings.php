@@ -138,6 +138,56 @@ class WTG_Admin_Settings {
 			'wtg_email_config'
 		);
 
+		// Twilio SMS Section.
+		add_settings_section(
+			'wtg_twilio_config',
+			__( 'Twilio SMS Reminders', 'wtg2' ),
+			array( __CLASS__, 'twilio_config_section_callback' ),
+			self::OPTION_GROUP
+		);
+
+		register_setting( self::OPTION_GROUP, 'wtg_twilio_account_sid', array(
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		) );
+
+		add_settings_field(
+			'wtg_twilio_account_sid',
+			__( 'Account SID', 'wtg2' ),
+			array( __CLASS__, 'twilio_account_sid_callback' ),
+			self::OPTION_GROUP,
+			'wtg_twilio_config'
+		);
+
+		register_setting( self::OPTION_GROUP, 'wtg_twilio_auth_token', array(
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		) );
+
+		add_settings_field(
+			'wtg_twilio_auth_token',
+			__( 'Auth Token', 'wtg2' ),
+			array( __CLASS__, 'twilio_auth_token_callback' ),
+			self::OPTION_GROUP,
+			'wtg_twilio_config'
+		);
+
+		register_setting( self::OPTION_GROUP, 'wtg_twilio_from_number', array(
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		) );
+
+		add_settings_field(
+			'wtg_twilio_from_number',
+			__( 'From Number', 'wtg2' ),
+			array( __CLASS__, 'twilio_from_number_callback' ),
+			self::OPTION_GROUP,
+			'wtg_twilio_config'
+		);
+
 		// Square Integration Section.
 		add_settings_section(
 			'wtg_square_config',
@@ -276,6 +326,53 @@ class WTG_Admin_Settings {
 				submit_button();
 				?>
 			</form>
+
+			<hr>
+			<h2><?php esc_html_e( 'Send Test SMS', 'wtg2' ); ?></h2>
+			<p><?php esc_html_e( 'Send a sample reminder text to verify your Twilio setup is working. The message will look exactly like what customers receive.', 'wtg2' ); ?></p>
+			<table class="form-table">
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Test Phone Number', 'wtg2' ); ?></th>
+					<td>
+						<input type="text" id="wtg-test-sms-phone" class="regular-text" placeholder="+12145551234">
+						<button type="button" id="wtg-test-sms-btn" class="button button-secondary">
+							<?php esc_html_e( 'Send Test SMS', 'wtg2' ); ?>
+						</button>
+						<span id="wtg-test-sms-result" style="margin-left:10px;vertical-align:middle;"></span>
+						<p class="description"><?php esc_html_e( 'Enter a 10-digit US number or E.164 format (+1...). Save your Twilio credentials above before testing.', 'wtg2' ); ?></p>
+					</td>
+				</tr>
+			</table>
+			<script>
+			(function($) {
+				$('#wtg-test-sms-btn').on('click', function() {
+					var phone   = $('#wtg-test-sms-phone').val().trim();
+					var $result = $('#wtg-test-sms-result');
+					if ( ! phone ) {
+						$result.html('<span style="color:red;">Please enter a phone number.</span>');
+						return;
+					}
+					var $btn = $(this);
+					$btn.prop('disabled', true).text('Sending...');
+					$result.html('');
+					$.post(ajaxurl, {
+						action: 'wtg_admin_test_sms',
+						nonce:  '<?php echo esc_js( wp_create_nonce( 'wtg_test_sms' ) ); ?>',
+						phone:  phone
+					}, function(response) {
+						if ( response.success ) {
+							$result.html('<span style="color:green;">' + response.data.message + '</span>');
+						} else {
+							$result.html('<span style="color:red;">' + response.data.message + '</span>');
+						}
+					}).fail(function() {
+						$result.html('<span style="color:red;">Request failed. Check browser console.</span>');
+					}).always(function() {
+						$btn.prop('disabled', false).text('<?php echo esc_js( __( 'Send Test SMS', 'wtg2' ) ); ?>');
+					});
+				});
+			})(jQuery);
+			</script>
 		</div>
 		<?php
 	}
@@ -369,6 +466,46 @@ class WTG_Admin_Settings {
 		<p class="description">
 			<?php esc_html_e( 'Email address to receive admin notifications for new bookings and gift certificate purchases. Leave blank to disable admin notifications.', 'wtg2' ); ?>
 		</p>
+		<?php
+	}
+
+	/**
+	 * Twilio SMS section callback.
+	 */
+	public static function twilio_config_section_callback() {
+		echo '<p>' . esc_html__( 'Configure Twilio to send automated SMS payment reminders 24 hours before each tour. Credentials are from console.twilio.com.', 'wtg2' ) . '</p>';
+	}
+
+	/**
+	 * Twilio Account SID field callback.
+	 */
+	public static function twilio_account_sid_callback() {
+		$value = get_option( 'wtg_twilio_account_sid', '' );
+		?>
+		<input type="text" name="wtg_twilio_account_sid" value="<?php echo esc_attr( $value ); ?>" class="regular-text">
+		<p class="description"><?php esc_html_e( 'Your Twilio Account SID (starts with AC).', 'wtg2' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Twilio Auth Token field callback.
+	 */
+	public static function twilio_auth_token_callback() {
+		$value = get_option( 'wtg_twilio_auth_token', '' );
+		?>
+		<input type="password" name="wtg_twilio_auth_token" value="<?php echo esc_attr( $value ); ?>" class="regular-text">
+		<p class="description"><?php esc_html_e( 'Your Twilio Auth Token. Keep this secure.', 'wtg2' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Twilio From Number field callback.
+	 */
+	public static function twilio_from_number_callback() {
+		$value = get_option( 'wtg_twilio_from_number', '' );
+		?>
+		<input type="text" name="wtg_twilio_from_number" value="<?php echo esc_attr( $value ); ?>" class="regular-text" placeholder="+18176235583">
+		<p class="description"><?php esc_html_e( 'Your Twilio phone number in E.164 format (e.g. +18176235583).', 'wtg2' ); ?></p>
 		<?php
 	}
 

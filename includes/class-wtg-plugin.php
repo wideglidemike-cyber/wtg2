@@ -65,6 +65,7 @@ class WTG_Plugin {
 
 		// Services.
 		require_once WTG2_PLUGIN_DIR . 'includes/services/class-wtg-square-invoice.php';
+		require_once WTG2_PLUGIN_DIR . 'includes/services/class-wtg-sms.php';
 
 		// Email.
 		require_once WTG2_PLUGIN_DIR . 'includes/emails/class-wtg-email-templates.php';
@@ -113,12 +114,19 @@ class WTG_Plugin {
 
 		// Cron hooks.
 		add_action( 'wtg_send_pending_invoices', array( $this, 'process_pending_invoices' ) );
+		add_action( 'wtg_send_sms_reminders', array( $this, 'process_pending_sms_reminders' ) );
 
 		// Self-heal: re-register cron if it somehow got unscheduled.
 		add_action( 'init', array( $this, 'ensure_cron_scheduled' ) );
 
 		// Admin AJAX: manually send all pending invoices.
 		add_action( 'wp_ajax_wtg_admin_send_all_invoices', array( $this, 'ajax_admin_send_all_invoices' ) );
+
+		// Admin AJAX: send a test SMS.
+		add_action( 'wp_ajax_wtg_admin_test_sms', array( $this, 'ajax_test_sms' ) );
+
+		// Admin AJAX: manually send all pending SMS reminders.
+		add_action( 'wp_ajax_wtg_admin_send_all_sms', array( $this, 'ajax_admin_send_all_sms' ) );
 	}
 
 	/**
@@ -197,11 +205,10 @@ class WTG_Plugin {
 			$publish_result = WTG_Square_Invoice::publish_invoice( $invoice_id, $booking['id'] );
 
 			if ( $publish_result['success'] ) {
-				// Mark invoice as sent.
-				WTG_Booking::update(
-					$booking['id'],
-					array( 'invoice_sent_at' => current_time( 'mysql' ) )
-				);
+				WTG_Booking::update( $booking['id'], array(
+					'invoice_sent_at' => current_time( 'mysql' ),
+					'invoice_url'     => $publish_result['invoice_url'],
+				) );
 
 				// Send our own balance invoice notification email.
 				WTG_Email_Templates::send_balance_invoice( $booking, $publish_result['invoice_url'] );
@@ -223,12 +230,15 @@ class WTG_Plugin {
 	}
 
 	/**
-	 * Ensure the invoice cron event is scheduled. Re-registers if missing.
+	 * Ensure cron events are scheduled. Re-registers if missing.
 	 * Runs on every `init` so it self-heals after plugin updates or cron flushes.
 	 */
 	public function ensure_cron_scheduled() {
 		if ( ! wp_next_scheduled( 'wtg_send_pending_invoices' ) ) {
 			wp_schedule_event( time(), 'hourly', 'wtg_send_pending_invoices' );
+		}
+		if ( ! wp_next_scheduled( 'wtg_send_sms_reminders' ) ) {
+			wp_schedule_event( time(), 'hourly', 'wtg_send_sms_reminders' );
 		}
 	}
 
@@ -256,7 +266,10 @@ class WTG_Plugin {
 		foreach ( $with_draft as $booking ) {
 			$result = WTG_Square_Invoice::publish_invoice( $booking['balance_square_id'], $booking['id'] );
 			if ( $result['success'] ) {
-				WTG_Booking::update( $booking['id'], array( 'invoice_sent_at' => current_time( 'mysql' ) ) );
+				WTG_Booking::update( $booking['id'], array(
+					'invoice_sent_at' => current_time( 'mysql' ),
+					'invoice_url'     => $result['invoice_url'],
+				) );
 				WTG_Email_Templates::send_balance_invoice( $booking, $result['invoice_url'] );
 				$sent++;
 			} else {
@@ -282,7 +295,10 @@ class WTG_Plugin {
 
 			$publish_result = WTG_Square_Invoice::publish_invoice( $invoice_id, $booking['id'] );
 			if ( $publish_result['success'] ) {
-				WTG_Booking::update( $booking['id'], array( 'invoice_sent_at' => current_time( 'mysql' ) ) );
+				WTG_Booking::update( $booking['id'], array(
+					'invoice_sent_at' => current_time( 'mysql' ),
+					'invoice_url'     => $publish_result['invoice_url'],
+				) );
 				WTG_Email_Templates::send_balance_invoice( $booking, $publish_result['invoice_url'] );
 				$sent++;
 			} else {
@@ -404,5 +420,102 @@ class WTG_Plugin {
 		}
 
 		return $label;
+	}
+
+	/**
+	 * Process pending SMS reminders (cron callback).
+	 *
+	 * Runs hourly. Sends balance reminder texts to bookings whose tour is tomorrow
+	 * and whose invoice has been sent but no SMS has gone out yet.
+	 */
+	public function process_pending_sms_reminders() {
+		$bookings = WTG_Booking::get_pending_sms_reminders();
+
+		if ( empty( $bookings ) ) {
+			return;
+		}
+
+		error_log( sprintf( 'WTG2 SMS: Sending %d reminder(s).', count( $bookings ) ) );
+
+		foreach ( $bookings as $booking ) {
+			$result = WTG_SMS::send_balance_reminder( $booking );
+
+			if ( $result['success'] ) {
+				WTG_Booking::update( $booking['id'], array( 'sms_sent_at' => current_time( 'mysql' ) ) );
+				error_log( sprintf( 'WTG2 SMS: Reminder sent for booking #%d (%s)', $booking['id'], $booking['phone'] ) );
+			} else {
+				error_log( sprintf( 'WTG2 SMS: Failed for booking #%d: %s', $booking['id'], $result['error'] ) );
+			}
+		}
+	}
+
+	/**
+	 * Admin AJAX: manually send all pending SMS reminders.
+	 */
+	public function ajax_admin_send_all_sms() {
+		check_ajax_referer( 'wtg_admin_send_all_sms', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Unauthorized.' ) );
+		}
+
+		$bookings = WTG_Booking::get_pending_sms_reminders();
+
+		if ( empty( $bookings ) ) {
+			wp_send_json_success( array( 'message' => 'No pending SMS reminders found.', 'count' => 0 ) );
+		}
+
+		$sent   = 0;
+		$failed = 0;
+		$errors = array();
+
+		foreach ( $bookings as $booking ) {
+			$result = WTG_SMS::send_balance_reminder( $booking );
+			if ( $result['success'] ) {
+				WTG_Booking::update( $booking['id'], array( 'sms_sent_at' => current_time( 'mysql' ) ) );
+				$sent++;
+			} else {
+				$failed++;
+				$errors[] = sprintf( 'Booking #%d (%s): %s', $booking['id'], $booking['phone'], $result['error'] );
+				error_log( sprintf( 'WTG2 SMS: Manual send failed for booking #%d: %s', $booking['id'], $result['error'] ) );
+			}
+		}
+
+		$message = sprintf( '%d SMS reminder(s) sent successfully.', $sent );
+		if ( $failed > 0 ) {
+			$message .= sprintf( ' %d failed — check error log.', $failed );
+		}
+
+		wp_send_json_success( array(
+			'message' => $message,
+			'count'   => $sent,
+			'failed'  => $failed,
+			'errors'  => $errors,
+		) );
+	}
+
+	/**
+	 * Admin AJAX: send a test SMS.
+	 */
+	public function ajax_test_sms() {
+		check_ajax_referer( 'wtg_test_sms', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Unauthorized.' ) );
+		}
+
+		$phone = isset( $_POST['phone'] ) ? sanitize_text_field( $_POST['phone'] ) : '';
+
+		if ( empty( $phone ) ) {
+			wp_send_json_error( array( 'message' => 'Phone number is required.' ) );
+		}
+
+		$result = WTG_SMS::send_test( $phone );
+
+		if ( $result['success'] ) {
+			wp_send_json_success( array( 'message' => 'Test SMS sent successfully!' ) );
+		} else {
+			wp_send_json_error( array( 'message' => 'Send failed: ' . $result['error'] ) );
+		}
 	}
 }

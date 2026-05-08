@@ -302,6 +302,8 @@ class WTG_Booking {
 			'balance_square_id' => '%s',
 			'invoice_square_id' => '%s',
 			'invoice_sent_at'   => '%s',
+			'invoice_url'       => '%s',
+			'sms_sent_at'       => '%s',
 			'notes'             => '%s',
 		);
 
@@ -418,6 +420,30 @@ class WTG_Booking {
 				ORDER BY tour_date ASC",
 				$hours_before
 			),
+			ARRAY_A
+		);
+	}
+
+	/**
+	 * Get bookings that need a 24-hour SMS reminder.
+	 *
+	 * Finds bookings whose tour is tomorrow, invoice has been sent,
+	 * invoice URL is stored, and no SMS has been sent yet.
+	 *
+	 * @return array Array of booking arrays.
+	 */
+	public static function get_pending_sms_reminders() {
+		global $wpdb;
+
+		return $wpdb->get_results(
+			"SELECT * FROM " . self::get_table_name() . "
+			WHERE invoice_sent_at IS NOT NULL
+			AND sms_sent_at IS NULL
+			AND invoice_url IS NOT NULL
+			AND invoice_url != ''
+			AND payment_status = 'deposit_paid'
+			AND tour_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+			ORDER BY time_slot ASC",
 			ARRAY_A
 		);
 	}
