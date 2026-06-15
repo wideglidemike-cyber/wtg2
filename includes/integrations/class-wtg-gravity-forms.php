@@ -281,6 +281,12 @@ class WTG_Gravity_Forms {
 		// Convert time slot to database format.
 		$time_slot = $this->convert_time_slot_to_db_format( $time_slot );
 
+		// The date picker offers both the Friday and Saturday date of a
+		// weekend as separate values. Normalize to the date the selected
+		// slot actually runs on (e.g. a Saturday slot always stores the
+		// Saturday date, even if the Friday date was selected).
+		$tour_date = WTG_Availability_Controller::get_slot_date( $tour_date, $time_slot );
+
 		// Combine name for admin display.
 		$customer_name = trim( $first_name . ' ' . $last_name );
 

@@ -24,6 +24,10 @@ class WTG_Seating_Grid_Controller {
 	 * @return array Array of seat data with status for each seat.
 	 */
 	public static function get_seat_data( $date, $time_slot ) {
+		// Normalize to the actual calendar date this slot runs on (Fri or Sat),
+		// regardless of which date in the weekend pair was passed in.
+		$date = WTG_Availability_Controller::get_slot_date( $date, $time_slot );
+
 		$capacity = WTG_Availability_Controller::get_capacity();
 
 		// Get all bookings for this slot
@@ -92,6 +96,10 @@ class WTG_Seating_Grid_Controller {
 	 * @return string HTML for seat grid.
 	 */
 	public static function render_seat_grid( $date, $time_slot ) {
+		// Normalize to the actual calendar date this slot runs on (Fri or Sat),
+		// regardless of which date in the weekend pair was passed in.
+		$date = WTG_Availability_Controller::get_slot_date( $date, $time_slot );
+
 		$seats = self::get_seat_data( $date, $time_slot );
 		$capacity = WTG_Availability_Controller::get_capacity();
 

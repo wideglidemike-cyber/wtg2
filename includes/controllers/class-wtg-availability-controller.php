@@ -59,6 +59,10 @@ class WTG_Availability_Controller {
 	 * @return array Availability result with 'available' boolean and 'reason' string.
 	 */
 	public static function check_slot_availability( $tour_date, $time_slot, $requested_tickets = 1 ) {
+		// Normalize to the actual calendar date this slot runs on (Fri or Sat),
+		// regardless of which date in the weekend pair was passed in.
+		$tour_date = self::get_slot_date( $tour_date, $time_slot );
+
 		// Check if date is in the past.
 		if ( strtotime( $tour_date ) < strtotime( 'today' ) ) {
 			return array(
@@ -119,6 +123,11 @@ class WTG_Availability_Controller {
 	public static function is_slot_unlocked( $tour_date, $time_slot ) {
 		$threshold = self::get_threshold();
 
+		// Resolve the Saturday and Friday dates for this weekend, regardless
+		// of which date in the pair was passed in.
+		$saturday_date = self::get_weekend_date( $tour_date );
+		$friday_date   = date( 'Y-m-d', strtotime( '-1 day', strtotime( $saturday_date ) ) );
+
 		switch ( $time_slot ) {
 			case 'sat_am':
 				// Saturday AM is always unlocked (first slot).
@@ -129,7 +138,7 @@ class WTG_Availability_Controller {
 
 			case 'sat_pm':
 				// Saturday PM unlocks when Saturday AM reaches threshold.
-				$sat_am_paid = WTG_Booking::count_paid_tickets( $tour_date, 'sat_am' );
+				$sat_am_paid = WTG_Booking::count_paid_tickets( $saturday_date, 'sat_am' );
 				if ( $sat_am_paid < $threshold ) {
 					return array(
 						'unlocked' => false,
@@ -144,7 +153,7 @@ class WTG_Availability_Controller {
 			case 'fri_pm':
 				// Friday PM unlocks when BOTH Saturday AM and Saturday PM reach threshold.
 				// First check if Saturday PM is unlocked.
-				$sat_pm_check = self::is_slot_unlocked( $tour_date, 'sat_pm' );
+				$sat_pm_check = self::is_slot_unlocked( $saturday_date, 'sat_pm' );
 				if ( ! $sat_pm_check['unlocked'] ) {
 					return array(
 						'unlocked' => false,
@@ -153,8 +162,8 @@ class WTG_Availability_Controller {
 				}
 
 				// Now check if BOTH Saturday slots have reached threshold.
-				$sat_am_paid = WTG_Booking::count_paid_tickets( $tour_date, 'sat_am' );
-				$sat_pm_paid = WTG_Booking::count_paid_tickets( $tour_date, 'sat_pm' );
+				$sat_am_paid = WTG_Booking::count_paid_tickets( $saturday_date, 'sat_am' );
+				$sat_pm_paid = WTG_Booking::count_paid_tickets( $saturday_date, 'sat_pm' );
 
 				if ( $sat_am_paid < $threshold ) {
 					return array(
@@ -178,7 +187,7 @@ class WTG_Availability_Controller {
 			case 'fri_am':
 				// Friday AM unlocks when Friday PM reaches threshold.
 				// But first, Friday PM must be unlocked.
-				$fri_pm_check = self::is_slot_unlocked( $tour_date, 'fri_pm' );
+				$fri_pm_check = self::is_slot_unlocked( $friday_date, 'fri_pm' );
 				if ( ! $fri_pm_check['unlocked'] ) {
 					return array(
 						'unlocked' => false,
@@ -186,7 +195,7 @@ class WTG_Availability_Controller {
 					);
 				}
 
-				$fri_pm_paid = WTG_Booking::count_paid_tickets( $tour_date, 'fri_pm' );
+				$fri_pm_paid = WTG_Booking::count_paid_tickets( $friday_date, 'fri_pm' );
 				if ( $fri_pm_paid < $threshold ) {
 					return array(
 						'unlocked' => false,
@@ -265,6 +274,29 @@ class WTG_Availability_Controller {
 
 		// Invalid day (not Friday or Saturday).
 		return $date;
+	}
+
+	/**
+	 * Get the actual calendar date a given slot runs on.
+	 *
+	 * The date picker offers both the Friday and Saturday date of a weekend
+	 * as separate selectable values, but each weekend has only one Friday
+	 * and one Saturday. This resolves a slot to the correct date for that
+	 * day regardless of which date in the pair was passed in.
+	 *
+	 * @param string $tour_date Any date (Y-m-d) within the target weekend.
+	 * @param string $time_slot Time slot (fri_am, fri_pm, sat_am, sat_pm).
+	 * @return string Date (Y-m-d) the slot actually runs on.
+	 */
+	public static function get_slot_date( $tour_date, $time_slot ) {
+		$saturday_date = self::get_weekend_date( $tour_date );
+
+		if ( in_array( $time_slot, array( 'sat_am', 'sat_pm' ), true ) ) {
+			return $saturday_date;
+		}
+
+		// Friday slots run the day before Saturday.
+		return date( 'Y-m-d', strtotime( '-1 day', strtotime( $saturday_date ) ) );
 	}
 
 	/**
