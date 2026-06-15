@@ -260,7 +260,7 @@ class WTG_Availability_Controller {
 	 */
 	public static function get_weekend_date( $date ) {
 		$timestamp = strtotime( $date );
-		$day_of_week = date( 'N', $timestamp ); // 1 = Monday, 7 = Sunday
+		$day_of_week = (int) date( 'N', $timestamp ); // 1 = Monday, 7 = Sunday
 
 		// If Friday (5), add 1 day to get Saturday.
 		if ( 5 === $day_of_week ) {
@@ -306,7 +306,7 @@ class WTG_Availability_Controller {
 	 * @return bool True if Friday or Saturday, false otherwise.
 	 */
 	public static function is_valid_tour_date( $date ) {
-		$day_of_week = date( 'N', strtotime( $date ) );
+		$day_of_week = (int) date( 'N', strtotime( $date ) );
 		return in_array( $day_of_week, array( 5, 6 ), true ); // 5 = Friday, 6 = Saturday
 	}
 }
