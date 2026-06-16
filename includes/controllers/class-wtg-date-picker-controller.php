@@ -69,18 +69,29 @@ class WTG_Date_Picker_Controller {
 			$count = (int) get_option( 'wtg_booking_weeks_ahead', 26 );
 		}
 		$weekends = self::get_upcoming_weekends( $count );
-		$options = array();
+		$options  = array();
+		$capacity = WTG_Availability_Controller::get_capacity();
 
 		foreach ( $weekends as $weekend ) {
-			// Add Friday option
-			$options[] = array(
-				'value' => $weekend['friday'],
-				'label' => $weekend['friday_label'],
-			);
+			$sat = $weekend['saturday'];
 
-			// Add Saturday option
+			// Only show the Friday date once both Saturday slots are completely
+			// full (sold out at capacity or manually marked full by admin).
+			$sat_am_full = ( WTG_Booking::count_tickets_sold( $sat, 'sat_am' ) >= $capacity )
+				|| WTG_Date_Override::is_slot_full( $sat, 'sat_am' );
+			$sat_pm_full = ( WTG_Booking::count_tickets_sold( $sat, 'sat_pm' ) >= $capacity )
+				|| WTG_Date_Override::is_slot_full( $sat, 'sat_pm' );
+
+			if ( $sat_am_full && $sat_pm_full ) {
+				$options[] = array(
+					'value' => $weekend['friday'],
+					'label' => $weekend['friday_label'],
+				);
+			}
+
+			// Saturday is always shown.
 			$options[] = array(
-				'value' => $weekend['saturday'],
+				'value' => $sat,
 				'label' => $weekend['saturday_label'],
 			);
 		}
