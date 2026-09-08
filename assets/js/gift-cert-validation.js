@@ -15,8 +15,14 @@
 	const FORM_ID = (typeof wtgAjax !== 'undefined' && wtgAjax.bookingFormId) ? parseInt(wtgAjax.bookingFormId) : 2;
 	const FIELD_ID = 14;
 	const FIELD_SELECTOR = '#input_' + FORM_ID + '_' + FIELD_ID;
+	const TICKETS_FIELD_ID = 3;
+	const TICKETS_SELECTOR = '#input_' + FORM_ID + '_' + TICKETS_FIELD_ID;
+	const DEPOSIT_PER_TICKET = 35.00;
 	const VALIDATION_DELAY = 800; // ms to wait after typing stops
-	const CC_FIELD_SELECTOR = '.gfield--type-square_creditcard, .gfield_creditcard, .gfield_stripe_creditcard';
+	// Scoped to this form so a credit card field elsewhere on the page is never touched.
+	const CC_FIELD_SELECTOR = '#gform_' + FORM_ID + ' .gfield--type-square_creditcard, ' +
+		'#gform_' + FORM_ID + ' .gfield_creditcard, ' +
+		'#gform_' + FORM_ID + ' .gfield_stripe_creditcard';
 
 	let validationTimeout = null;
 	let lastValidatedCode = '';
@@ -65,14 +71,23 @@
 	}
 
 	/**
-	 * Get the current deposit total (before GC discount) by reading the displayed
-	 * GF total and adding back the current GC discount amount.
+	 * Get the deposit total before any gift certificate discount.
+	 *
+	 * Derived from the tickets field rather than the displayed GF total: that
+	 * total is already discounted, is repainted asynchronously after a
+	 * recalculation, and reads as 0 before GF has rendered it — which would
+	 * make any cert amount look like it covered the deposit.
+	 *
+	 * @return {number} Deposit due before discount, or 0 if not yet known.
 	 */
 	function getDepositTotal() {
-		var displayedTotal = parseFloat(
-			$('#gform_' + FORM_ID + ' .ginput_total').first().text().replace(/[^0-9.]/g, '')
-		) || 0;
-		return displayedTotal + validatedCertAmount;
+		var tickets = parseInt($(TICKETS_SELECTOR).val(), 10);
+
+		if (isNaN(tickets) || tickets < 1) {
+			return 0;
+		}
+
+		return tickets * DEPOSIT_PER_TICKET;
 	}
 
 	/**
@@ -85,7 +100,13 @@
 		}
 
 		var depositTotal = getDepositTotal();
-		var gcCoversDeposit = validatedCertAmount > 0 && validatedCertAmount >= depositTotal && depositTotal > 0;
+
+		// A deposit of 0 means the ticket count isn't known yet — never treat
+		// that as "covered", or the card field would be hidden while money is
+		// still owed. Sub-cent tolerance avoids float dust keeping the field up.
+		var gcCoversDeposit = depositTotal > 0 &&
+			validatedCertAmount > 0 &&
+			validatedCertAmount >= ( depositTotal - 0.005 );
 
 		if (gcCoversDeposit) {
 			$ccField.slideUp(200);
@@ -144,6 +165,15 @@
 			const code = $(this).val().trim();
 			if (code !== '' && code !== lastValidatedCode) {
 				validateGiftCertCode(code);
+			}
+		});
+
+		// Changing the ticket count changes the deposit, so the card field may
+		// need to come back (or go away) even though the code hasn't changed.
+		$(document).on('change', TICKETS_SELECTOR, function() {
+			if (validatedCertAmount > 0) {
+				recalculateTotal();
+				toggleCreditCardField();
 			}
 		});
 	}
