@@ -166,15 +166,19 @@
 			},
 			success: function(response) {
 				if (response.success) {
-					// Store the validated amount and update GF total.
+					// Store the remaining balance and update GF total.
 					validatedCertAmount = parseFloat(response.data.amount.replace(/,/g, ''));
 					registerGiftCertFilter();
 					recalculateTotal();
 
-					showValidationMessage(
-						'Valid! Credit: $' + response.data.amount,
-						'success'
-					);
+					// A partially used code shows its remaining balance so the
+					// customer isn't surprised by a smaller credit than the face value.
+					var msg = response.data.is_partial
+						? 'Valid! Remaining balance: $' + response.data.amount +
+						  ' (of $' + response.data.face_value + ')'
+						: 'Valid! Credit: $' + response.data.amount;
+
+					showValidationMessage(msg, 'success');
 					toggleCreditCardField();
 				} else {
 					// Clear discount on invalid code.

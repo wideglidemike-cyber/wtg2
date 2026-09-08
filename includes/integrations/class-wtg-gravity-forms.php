@@ -305,18 +305,29 @@ class WTG_Gravity_Forms {
 		$gift_cert_id     = null;
 
 		// Apply gift certificate if provided.
+		$gift_cert_used = 0.00;
+
 		if ( ! empty( $gift_cert_code ) ) {
-			$gift_cert = WTG_Gift_Certificate::get_by_code( $gift_cert_code );
-			if ( $gift_cert && 'active' === $gift_cert->status ) {
-				$gift_cert_id     = $gift_cert->id;
-				$discount_applied = floatval( $gift_cert->amount );
+			$gift_cert       = WTG_Gift_Certificate::get_by_code( $gift_cert_code );
+			$usable_statuses = array( 'active', 'partially_redeemed' );
+
+			if ( $gift_cert && in_array( $gift_cert->status, $usable_statuses, true ) ) {
+				$gift_cert_id = $gift_cert->id;
+
+				// Credit available is the remaining balance, not the face value —
+				// a partially used certificate carries forward what's left.
+				$available_credit = WTG_Gift_Certificate::get_remaining( $gift_cert );
 
 				// Apply cert to deposit first, remainder to balance, remainder to tax.
-				$deposit_discount = min( $discount_applied, $deposit_amount );
-				$remaining_credit = $discount_applied - $deposit_discount;
+				$deposit_discount = min( $available_credit, $deposit_amount );
+				$remaining_credit = $available_credit - $deposit_discount;
 				$balance_discount = min( $remaining_credit, $balance_pretax );
 				$remaining_credit = $remaining_credit - $balance_discount;
 				$tax_discount     = min( $remaining_credit, $tax_amount );
+
+				// Only the portion actually applied is spent; the rest stays on the code.
+				$gift_cert_used   = round( $deposit_discount + $balance_discount + $tax_discount, 2 );
+				$discount_applied = $gift_cert_used;
 
 				$deposit_amount = $deposit_amount - $deposit_discount;
 				$balance_due    = max( 0, $balance_pretax - $balance_discount );
@@ -370,9 +381,10 @@ class WTG_Gravity_Forms {
 		);
 
 		if ( $booking_id ) {
-			// Redeem the gift certificate.
-			if ( ! empty( $gift_cert_code ) ) {
-				WTG_Gift_Certificate::redeem( $gift_cert_code, $booking_id );
+			// Redeem only the value applied to this booking; any remainder
+			// stays on the code for a future booking.
+			if ( ! empty( $gift_cert_code ) && $gift_cert_used > 0 ) {
+				WTG_Gift_Certificate::redeem( $gift_cert_code, $booking_id, $gift_cert_used );
 			}
 
 			// Store booking ID in entry meta.
@@ -464,10 +476,16 @@ class WTG_Gravity_Forms {
 		$validation = WTG_Gift_Certificate::validate_code( $code );
 
 		if ( $validation['valid'] ) {
+			$remaining   = $validation['remaining'];
+			$face_value  = floatval( $validation['cert']->amount );
+			$is_partial  = $remaining < $face_value;
+
 			wp_send_json_success(
 				array(
-					'message' => $validation['message'],
-					'amount'  => number_format( $validation['cert']->amount, 2 ),
+					'message'    => $validation['message'],
+					'amount'     => number_format( $remaining, 2 ),
+					'face_value' => number_format( $face_value, 2 ),
+					'is_partial' => $is_partial,
 				)
 			);
 		} else {
@@ -512,9 +530,10 @@ class WTG_Gravity_Forms {
 			return $product_info;
 		}
 
-		$gift_cert = WTG_Gift_Certificate::get_by_code( $gift_cert_code );
+		$gift_cert       = WTG_Gift_Certificate::get_by_code( $gift_cert_code );
+		$usable_statuses = array( 'active', 'partially_redeemed' );
 
-		if ( ! $gift_cert || 'active' !== $gift_cert->status ) {
+		if ( ! $gift_cert || ! in_array( $gift_cert->status, $usable_statuses, true ) ) {
 			return $product_info;
 		}
 
@@ -530,7 +549,8 @@ class WTG_Gravity_Forms {
 			return $product_info;
 		}
 
-		$cert_amount = floatval( $gift_cert->amount );
+		// Use the balance still on the code, not its original face value.
+		$cert_amount = WTG_Gift_Certificate::get_remaining( $gift_cert );
 
 		// Cap the discount at the deposit total so GF total never goes negative.
 		$deposit_discount = min( $cert_amount, $current_total );

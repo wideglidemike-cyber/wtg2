@@ -97,10 +97,13 @@ class WTG_Activator {
 			recipient_name varchar(255) DEFAULT NULL,
 			recipient_email varchar(255) DEFAULT NULL,
 			amount decimal(10,2) NOT NULL,
+			remaining_amount decimal(10,2) DEFAULT NULL,
 			message text DEFAULT NULL,
-			status enum('active','redeemed','expired','cancelled') DEFAULT 'active',
+			status enum('active','partially_redeemed','redeemed','expired','cancelled') DEFAULT 'active',
 			redeemed_at datetime DEFAULT NULL,
 			redeemed_by_booking_id bigint(20) UNSIGNED DEFAULT NULL,
+			expiration_date date DEFAULT NULL,
+			notes text DEFAULT NULL,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -112,6 +115,9 @@ class WTG_Activator {
 		) {$charset_collate};";
 
 		dbDelta( $sql_gift_certs );
+
+		// Migration: Add partial-redemption + admin columns to gift certificates.
+		self::migrate_gift_cert_columns();
 
 		// Table 3: Date Overrides.
 		$table_overrides = $prefix . 'wtg_date_overrides';
@@ -148,7 +154,7 @@ class WTG_Activator {
 		dbDelta( $sql_email_log );
 
 		// Store database version for future migrations.
-		update_option( 'wtg_db_version', '1.2.0' );
+		update_option( 'wtg_db_version', '1.3.0' );
 	}
 
 	/**
@@ -371,5 +377,80 @@ class WTG_Activator {
 		if ( empty( $col ) ) {
 			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN sms_sent_at datetime DEFAULT NULL AFTER invoice_url" );
 		}
+	}
+
+	/**
+	 * Add partial-redemption and admin-management columns to gift certificates.
+	 *
+	 * Adds remaining_amount (running balance), expiration_date and notes, and
+	 * widens the status enum to include 'partially_redeemed'. Backfills
+	 * remaining_amount for existing rows so certificates sold before this
+	 * release keep their unused value.
+	 */
+	private static function migrate_gift_cert_columns() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'wtg_gift_certificates';
+
+		// remaining_amount — running balance left on the certificate.
+		$col = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'remaining_amount'",
+				DB_NAME,
+				$table
+			)
+		);
+		if ( empty( $col ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN remaining_amount decimal(10,2) DEFAULT NULL AFTER amount" );
+		}
+
+		// expiration_date — referenced by the admin UI since launch but never created.
+		$col = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'expiration_date'",
+				DB_NAME,
+				$table
+			)
+		);
+		if ( empty( $col ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN expiration_date date DEFAULT NULL AFTER redeemed_by_booking_id" );
+		}
+
+		// notes — admin-only free text.
+		$col = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'notes'",
+				DB_NAME,
+				$table
+			)
+		);
+		if ( empty( $col ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN notes text DEFAULT NULL AFTER expiration_date" );
+		}
+
+		// Widen the status enum to allow 'partially_redeemed'.
+		$status_col = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'status'",
+				DB_NAME,
+				$table
+			)
+		);
+		if ( $status_col && false === strpos( $status_col->COLUMN_TYPE, 'partially_redeemed' ) ) {
+			$wpdb->query(
+				"ALTER TABLE {$table} MODIFY COLUMN status enum('active','partially_redeemed','redeemed','expired','cancelled') DEFAULT 'active'"
+			);
+		}
+
+		// Backfill remaining_amount for rows created before this column existed.
+		// Active certificates keep their full value; already-redeemed ones are
+		// treated as spent, since no per-booking usage was recorded at the time.
+		$wpdb->query(
+			"UPDATE {$table}
+			 SET remaining_amount = CASE
+				 WHEN status IN ('redeemed','expired','cancelled') THEN 0.00
+				 ELSE amount
+			 END
+			 WHERE remaining_amount IS NULL"
+		);
 	}
 }

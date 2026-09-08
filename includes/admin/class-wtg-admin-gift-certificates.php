@@ -66,18 +66,58 @@ class WTG_Admin_Gift_Certificates {
 		if ( isset( $_POST['wtg_create_certificate'] ) ) {
 			check_admin_referer( 'wtg_create_certificate' );
 
+			$purchaser_name  = sanitize_text_field( $_POST['purchaser_name'] ?? '' );
+			$purchaser_email = sanitize_email( $_POST['purchaser_email'] ?? '' );
+			$recipient_name  = sanitize_text_field( $_POST['recipient_name'] ?? '' );
+			$recipient_email = sanitize_email( $_POST['recipient_email'] ?? '' );
+			$amount          = floatval( $_POST['amount'] ?? 0 );
+			$code            = strtoupper( sanitize_text_field( $_POST['code'] ?? '' ) );
+
+			// Recipient defaults to the purchaser when left blank.
+			if ( empty( $recipient_name ) ) {
+				$recipient_name = $purchaser_name;
+			}
+			if ( empty( $recipient_email ) ) {
+				$recipient_email = $purchaser_email;
+			}
+
 			$data = array(
-				'code'              => strtoupper( sanitize_text_field( $_POST['code'] ) ),
-				'amount'            => floatval( $_POST['amount'] ),
-				'purchaser_name'    => sanitize_text_field( $_POST['purchaser_name'] ),
-				'purchaser_email'   => sanitize_email( $_POST['purchaser_email'] ),
-				'recipient_name'    => sanitize_text_field( $_POST['recipient_name'] ),
-				'recipient_email'   => sanitize_email( $_POST['recipient_email'] ),
-				'expiration_date'   => sanitize_text_field( $_POST['expiration_date'] ),
-				'notes'             => sanitize_textarea_field( $_POST['notes'] ),
+				'code'              => $code,
+				'amount'            => $amount,
+				'purchaser_name'    => $purchaser_name,
+				'purchaser_email'   => $purchaser_email,
+				'recipient_name'    => $recipient_name,
+				'recipient_email'   => $recipient_email,
+				'expiration_date'   => sanitize_text_field( $_POST['expiration_date'] ?? '' ),
+				'notes'             => sanitize_textarea_field( $_POST['notes'] ?? '' ),
 			);
 
-			WTG_Gift_Certificate::create( $data );
+			$cert_id = WTG_Gift_Certificate::create( $data );
+
+			if ( ! $cert_id ) {
+				wp_redirect( admin_url( 'admin.php?page=wtg-gift-certificates&message=create_failed' ) );
+				exit;
+			}
+
+			// Optionally email the code out, same as a website purchase would.
+			if ( ! empty( $_POST['send_emails'] ) ) {
+				$gc_data = array(
+					'code'            => $code,
+					'amount'          => $amount,
+					'purchaser_name'  => $purchaser_name,
+					'purchaser_email' => $purchaser_email,
+					'recipient_name'  => $recipient_name,
+					'recipient_email' => $recipient_email,
+					'message'         => '',
+				);
+
+				if ( ! empty( $purchaser_email ) ) {
+					WTG_Email_Templates::send_gift_certificate_purchaser( $gc_data );
+				}
+				if ( ! empty( $recipient_email ) ) {
+					WTG_Email_Templates::send_gift_certificate_recipient( $gc_data );
+				}
+			}
 
 			wp_redirect( admin_url( 'admin.php?page=wtg-gift-certificates&message=created' ) );
 			exit;
@@ -135,6 +175,7 @@ class WTG_Admin_Gift_Certificates {
 			$message = sanitize_text_field( $_GET['message'] );
 			$messages = array(
 				'created'   => __( 'Gift certificate created successfully.', 'wtg2' ),
+				'create_failed' => __( 'Could not create the gift certificate. The code may already be in use.', 'wtg2' ),
 				'cancelled' => __( 'Gift certificate cancelled successfully.', 'wtg2' ),
 				'expired'   => __( 'Gift certificate expired successfully.', 'wtg2' ),
 			);
@@ -164,6 +205,7 @@ class WTG_Admin_Gift_Certificates {
 				<select name="status">
 					<option value=""><?php esc_html_e( 'All Statuses', 'wtg2' ); ?></option>
 					<option value="active" <?php selected( $status_filter, 'active' ); ?>><?php esc_html_e( 'Active', 'wtg2' ); ?></option>
+					<option value="partially_redeemed" <?php selected( $status_filter, 'partially_redeemed' ); ?>><?php esc_html_e( 'Partially Redeemed', 'wtg2' ); ?></option>
 					<option value="redeemed" <?php selected( $status_filter, 'redeemed' ); ?>><?php esc_html_e( 'Redeemed', 'wtg2' ); ?></option>
 					<option value="expired" <?php selected( $status_filter, 'expired' ); ?>><?php esc_html_e( 'Expired', 'wtg2' ); ?></option>
 					<option value="cancelled" <?php selected( $status_filter, 'cancelled' ); ?>><?php esc_html_e( 'Cancelled', 'wtg2' ); ?></option>
@@ -183,6 +225,7 @@ class WTG_Admin_Gift_Certificates {
 						<tr>
 							<th><?php esc_html_e( 'Code', 'wtg2' ); ?></th>
 							<th><?php esc_html_e( 'Amount', 'wtg2' ); ?></th>
+							<th><?php esc_html_e( 'Remaining', 'wtg2' ); ?></th>
 							<th><?php esc_html_e( 'Purchaser', 'wtg2' ); ?></th>
 							<th><?php esc_html_e( 'Recipient', 'wtg2' ); ?></th>
 							<th><?php esc_html_e( 'Expiration', 'wtg2' ); ?></th>
@@ -193,7 +236,7 @@ class WTG_Admin_Gift_Certificates {
 					<tbody>
 						<?php if ( empty( $certificates ) ) : ?>
 							<tr>
-								<td colspan="7" style="text-align: center; padding: 40px;">
+								<td colspan="8" style="text-align: center; padding: 40px;">
 									<?php esc_html_e( 'No gift certificates found.', 'wtg2' ); ?>
 								</td>
 							</tr>
@@ -202,6 +245,15 @@ class WTG_Admin_Gift_Certificates {
 								<tr>
 									<td><strong><?php echo esc_html( $cert->code ?? '' ); ?></strong></td>
 									<td>$<?php echo number_format( floatval( $cert->amount ?? 0 ), 2 ); ?></td>
+									<td>
+										<?php
+										$remaining = WTG_Gift_Certificate::get_remaining( $cert );
+										$is_partial = $remaining > 0 && $remaining < floatval( $cert->amount ?? 0 );
+										?>
+										<strong<?php echo $is_partial ? ' style="color: #b26a00;"' : ''; ?>>
+											$<?php echo number_format( $remaining, 2 ); ?>
+										</strong>
+									</td>
 									<td>
 										<?php echo esc_html( $cert->purchaser_name ?? '' ); ?><br>
 										<small class="wtg-text-muted">
@@ -225,7 +277,7 @@ class WTG_Admin_Gift_Certificates {
 									</td>
 									<td>
 										<span class="wtg-status-badge <?php echo esc_attr( $cert->status ?? 'active' ); ?>">
-											<?php echo esc_html( ucfirst( $cert->status ?? 'active' ) ); ?>
+											<?php echo esc_html( ucwords( str_replace( '_', ' ', $cert->status ?? 'active' ) ) ); ?>
 										</span>
 									</td>
 									<td>
@@ -233,7 +285,7 @@ class WTG_Admin_Gift_Certificates {
 											<a href="<?php echo esc_url( admin_url( 'admin.php?page=wtg-gift-certificates&action=view&id=' . ( $cert->id ?? 0 ) ) ); ?>">
 												<?php esc_html_e( 'View', 'wtg2' ); ?>
 											</a>
-											<?php if ( 'active' === ( $cert->status ?? '' ) ) : ?>
+											<?php if ( in_array( $cert->status ?? '', array( 'active', 'partially_redeemed' ), true ) ) : ?>
 												<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=wtg-gift-certificates&action=cancel&id=' . ( $cert->id ?? 0 ) ), 'wtg_cancel_cert_' . ( $cert->id ?? 0 ) ) ); ?>" onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to cancel this certificate?', 'wtg2' ); ?>');">
 													<?php esc_html_e( 'Cancel', 'wtg2' ); ?>
 												</a>
@@ -349,6 +401,17 @@ class WTG_Admin_Gift_Certificates {
 							<th><label for="notes"><?php esc_html_e( 'Notes', 'wtg2' ); ?></label></th>
 							<td>
 								<textarea id="notes" name="notes"></textarea>
+								<span class="wtg-form-help"><?php esc_html_e( 'Internal only — not shown to the customer.', 'wtg2' ); ?></span>
+							</td>
+						</tr>
+						<tr>
+							<th><label for="send_emails"><?php esc_html_e( 'Send Emails', 'wtg2' ); ?></label></th>
+							<td>
+								<label>
+									<input type="checkbox" id="send_emails" name="send_emails" value="1" checked>
+									<?php esc_html_e( 'Email the certificate code to the purchaser and recipient.', 'wtg2' ); ?>
+								</label>
+								<span class="wtg-form-help"><?php esc_html_e( 'Uncheck if you are delivering the code yourself.', 'wtg2' ); ?></span>
 							</td>
 						</tr>
 					</tbody>
@@ -380,7 +443,7 @@ class WTG_Admin_Gift_Certificates {
 
 		// Get booking if redeemed.
 		$booking = null;
-		if ( 'redeemed' === $cert->status && ! empty( $cert->redeemed_by_booking_id ) ) {
+		if ( in_array( $cert->status, array( 'redeemed', 'partially_redeemed' ), true ) && ! empty( $cert->redeemed_by_booking_id ) ) {
 			$booking = WTG_Booking::get_by_id( $cert->redeemed_by_booking_id );
 		}
 
@@ -394,14 +457,27 @@ class WTG_Admin_Gift_Certificates {
 				<table class="wtg-form-table">
 					<tbody>
 						<tr>
-							<th><?php esc_html_e( 'Amount', 'wtg2' ); ?></th>
+							<th><?php esc_html_e( 'Original Amount', 'wtg2' ); ?></th>
 							<td>$<?php echo number_format( floatval( $cert->amount ?? 0 ), 2 ); ?></td>
+						</tr>
+						<tr>
+							<th><?php esc_html_e( 'Remaining Balance', 'wtg2' ); ?></th>
+							<td>
+								<?php $remaining = WTG_Gift_Certificate::get_remaining( $cert ); ?>
+								<strong>$<?php echo number_format( $remaining, 2 ); ?></strong>
+								<?php if ( $remaining > 0 && $remaining < floatval( $cert->amount ?? 0 ) ) : ?>
+									<span class="wtg-text-muted">
+										&mdash; $<?php echo number_format( floatval( $cert->amount ) - $remaining, 2 ); ?>
+										<?php esc_html_e( 'already used', 'wtg2' ); ?>
+									</span>
+								<?php endif; ?>
+							</td>
 						</tr>
 						<tr>
 							<th><?php esc_html_e( 'Status', 'wtg2' ); ?></th>
 							<td>
 								<span class="wtg-status-badge <?php echo esc_attr( $cert->status ?? 'active' ); ?>">
-									<?php echo esc_html( ucfirst( $cert->status ?? 'active' ) ); ?>
+									<?php echo esc_html( ucwords( str_replace( '_', ' ', $cert->status ?? 'active' ) ) ); ?>
 								</span>
 							</td>
 						</tr>
@@ -440,7 +516,7 @@ class WTG_Admin_Gift_Certificates {
 					</tbody>
 				</table>
 
-				<?php if ( 'redeemed' === ( $cert->status ?? '' ) ) : ?>
+				<?php if ( in_array( $cert->status ?? '', array( 'redeemed', 'partially_redeemed' ), true ) ) : ?>
 					<h3><?php esc_html_e( 'Redemption History', 'wtg2' ); ?></h3>
 					<?php if ( $booking ) : ?>
 						<table class="wtg-form-table">
