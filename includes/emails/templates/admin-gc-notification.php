@@ -14,20 +14,44 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 
+<?php
+$codes    = isset( $codes ) && is_array( $codes ) ? $codes : array( $code );
+$quantity = isset( $quantity ) ? intval( $quantity ) : count( $codes );
+?>
+
 <h2>New Gift Certificate Purchase</h2>
 
-<p>A new gift certificate has been purchased on the website.</p>
+<p><?php echo $quantity > 1 ? esc_html( $quantity ) . ' new gift certificates have' : 'A new gift certificate has'; ?> been purchased on the website.</p>
 
 <div class="info-box">
 	<table>
-		<tr>
-			<td>Gift Certificate Code:</td>
-			<td><strong><?php echo esc_html( $code ); ?></strong></td>
-		</tr>
-		<tr>
-			<td>Amount:</td>
-			<td><strong>$<?php echo esc_html( $amount ); ?></strong></td>
-		</tr>
+		<?php if ( $quantity > 1 ) : ?>
+			<tr>
+				<td>Certificates:</td>
+				<td><strong><?php echo esc_html( $quantity ); ?></strong></td>
+			</tr>
+			<tr>
+				<td>Value Each:</td>
+				<td><strong>$<?php echo esc_html( $amount ); ?></strong></td>
+			</tr>
+			<tr>
+				<td>Total Paid:</td>
+				<td><strong>$<?php echo esc_html( $total_amount ); ?></strong></td>
+			</tr>
+			<tr>
+				<td>Codes:</td>
+				<td><strong><?php echo esc_html( implode( ', ', $codes ) ); ?></strong></td>
+			</tr>
+		<?php else : ?>
+			<tr>
+				<td>Gift Certificate Code:</td>
+				<td><strong><?php echo esc_html( $code ); ?></strong></td>
+			</tr>
+			<tr>
+				<td>Amount:</td>
+				<td><strong>$<?php echo esc_html( $amount ); ?></strong></td>
+			</tr>
+		<?php endif; ?>
 		<tr>
 			<td>Purchase Date:</td>
 			<td><?php echo esc_html( $purchase_date ); ?></td>

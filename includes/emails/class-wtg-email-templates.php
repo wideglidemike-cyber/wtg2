@@ -132,19 +132,44 @@ class WTG_Email_Templates {
 	 * @param array $gc_data Gift certificate data.
 	 */
 	public static function send_gift_certificate_purchaser( $gc_data ) {
-		$to      = $gc_data['purchaser_email'];
-		$subject = sprintf( 'Gift Certificate Confirmed - %s', $gc_data['code'] );
+		$to       = $gc_data['purchaser_email'];
+		$codes    = self::get_gc_codes( $gc_data );
+		$quantity = count( $codes );
+
+		$subject = $quantity > 1
+			? sprintf( 'Gift Certificates Confirmed - %d Codes', $quantity )
+			: sprintf( 'Gift Certificate Confirmed - %s', $codes[0] );
 
 		$message = self::get_email_template( 'gift-certificate-purchaser', array(
 			'purchaser_name'  => $gc_data['purchaser_name'],
 			'recipient_name'  => $gc_data['recipient_name'],
 			'recipient_email' => $gc_data['recipient_email'],
-			'code'            => $gc_data['code'],
+			'code'            => $codes[0],
+			'codes'           => $codes,
+			'quantity'        => $quantity,
 			'amount'          => number_format( floatval( $gc_data['amount'] ), 2 ),
+			'total_amount'    => number_format( floatval( $gc_data['amount'] ) * $quantity, 2 ),
 			'message'         => $gc_data['message'],
 		) );
 
 		self::send_email( $to, $subject, $message, 'gc_purchaser' );
+	}
+
+	/**
+	 * Normalize gift certificate codes to an array.
+	 *
+	 * Accepts either the multi-code 'codes' key or a single 'code', so
+	 * callers that predate multi-quantity purchases keep working.
+	 *
+	 * @param array $gc_data Gift certificate data.
+	 * @return array List of codes (at least one).
+	 */
+	private static function get_gc_codes( $gc_data ) {
+		if ( ! empty( $gc_data['codes'] ) && is_array( $gc_data['codes'] ) ) {
+			return array_values( $gc_data['codes'] );
+		}
+
+		return array( $gc_data['code'] );
 	}
 
 	/**
@@ -153,14 +178,22 @@ class WTG_Email_Templates {
 	 * @param array $gc_data Gift certificate data.
 	 */
 	public static function send_gift_certificate_recipient( $gc_data ) {
-		$to      = $gc_data['recipient_email'];
-		$subject = 'You\'ve Received a Wine Tours Grapevine Gift Certificate!';
+		$to       = $gc_data['recipient_email'];
+		$codes    = self::get_gc_codes( $gc_data );
+		$quantity = count( $codes );
+
+		$subject = $quantity > 1
+			? sprintf( 'You\'ve Received %d Wine Tours Grapevine Gift Certificates!', $quantity )
+			: 'You\'ve Received a Wine Tours Grapevine Gift Certificate!';
 
 		$message = self::get_email_template( 'gift-certificate-recipient', array(
 			'purchaser_name' => $gc_data['purchaser_name'],
 			'recipient_name' => $gc_data['recipient_name'],
-			'code'           => $gc_data['code'],
+			'code'           => $codes[0],
+			'codes'          => $codes,
+			'quantity'       => $quantity,
 			'amount'         => number_format( floatval( $gc_data['amount'] ), 2 ),
+			'total_amount'   => number_format( floatval( $gc_data['amount'] ) * $quantity, 2 ),
 			'message'        => $gc_data['message'],
 		) );
 
@@ -178,15 +211,23 @@ class WTG_Email_Templates {
 			return;
 		}
 
-		$subject = sprintf( 'New Gift Certificate Purchase - %s', $gc_data['code'] );
+		$codes    = self::get_gc_codes( $gc_data );
+		$quantity = count( $codes );
+
+		$subject = $quantity > 1
+			? sprintf( 'New Gift Certificate Purchase - %d Certificates', $quantity )
+			: sprintf( 'New Gift Certificate Purchase - %s', $codes[0] );
 
 		$message = self::get_email_template( 'admin-gc-notification', array(
 			'purchaser_name'  => $gc_data['purchaser_name'],
 			'purchaser_email' => $gc_data['purchaser_email'],
 			'recipient_name'  => $gc_data['recipient_name'],
 			'recipient_email' => $gc_data['recipient_email'],
-			'code'            => $gc_data['code'],
+			'code'            => $codes[0],
+			'codes'           => $codes,
+			'quantity'        => $quantity,
 			'amount'          => number_format( floatval( $gc_data['amount'] ), 2 ),
+			'total_amount'    => number_format( floatval( $gc_data['amount'] ) * $quantity, 2 ),
 			'message'         => $gc_data['message'],
 			'purchase_date'   => current_time( 'F j, Y g:i A' ),
 		) );

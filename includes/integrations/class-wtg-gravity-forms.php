@@ -45,6 +45,11 @@ class WTG_Gravity_Forms {
 	const FIELD_GC_MESSAGE = 17;
 
 	/**
+	 * Maximum gift certificates creatable from a single purchase.
+	 */
+	const MAX_GIFT_CERT_QUANTITY = 10;
+
+	/**
 	 * Initialize the integration.
 	 */
 	public function __construct() {
@@ -83,22 +88,22 @@ class WTG_Gravity_Forms {
 	 * @param array $form  The form currently being processed.
 	 */
 	public function process_gift_certificate_purchase( $entry, $form ) {
-		// Generate unique code.
-		$code = WTG_Gift_Certificate::generate_unique_code();
+		// Read the quantity and unit price from the product field so a single
+		// purchase of N certificates produces N separate, individually
+		// redeemable codes rather than one combined code.
+		$purchase = $this->get_gift_cert_purchase_details( $entry, $form );
 
-		// Get the purchase amount from the payment (most reliable for radio product fields).
-		$amount = floatval( rgar( $entry, 'payment_amount' ) );
+		$quantity   = $purchase['quantity'];
+		$unit_price = $purchase['unit_price'];
 
-		// Fallback: extract from GF product info if payment_amount is missing.
-		if ( $amount <= 0 ) {
-			$products = GFCommon::get_product_fields( $form, $entry );
-			if ( ! empty( $products['products'] ) ) {
-				foreach ( $products['products'] as $product ) {
-					$price    = GFCommon::to_number( $product['price'] );
-					$quantity = intval( $product['quantity'] );
-					$amount  += $price * $quantity;
-				}
-			}
+		if ( $quantity < 1 || $unit_price <= 0 ) {
+			error_log( sprintf(
+				'WTG2: Gift certificate entry %d produced no usable quantity/price (qty %d, unit %s) — nothing created.',
+				$entry['id'],
+				$quantity,
+				$unit_price
+			) );
+			return;
 		}
 
 		// Concatenate name parts (Field 1: 1.3=first, 1.6=last).
@@ -115,45 +120,140 @@ class WTG_Gravity_Forms {
 
 		$message = rgar( $entry, self::FIELD_GC_MESSAGE );
 
-		// Create gift certificate record.
-		$gift_cert_id = WTG_Gift_Certificate::create(
-			array(
-				'code'             => $code,
-				'gf_entry_id'      => $entry['id'],
-				'purchaser_name'   => $purchaser_name,
-				'purchaser_email'  => $purchaser_email,
-				'recipient_name'   => $recipient_name,
-				'recipient_email'  => $recipient_email,
-				'amount'           => $amount,
-				'message'          => $message,
-				'status'           => 'active',
-			)
-		);
+		// Create one certificate per unit purchased.
+		$codes = array();
 
-		if ( $gift_cert_id ) {
-			// Store the code in entry meta for notification use.
-			gform_update_meta( $entry['id'], 'wtg_gift_cert_code', $code );
-			gform_update_meta( $entry['id'], 'wtg_gift_cert_id', $gift_cert_id );
+		for ( $i = 0; $i < $quantity; $i++ ) {
+			$code = WTG_Gift_Certificate::generate_unique_code();
 
-			// Log success.
-			if ( function_exists( 'error_log' ) ) {
-				error_log( sprintf( 'WTG2: Gift certificate %s created for entry %d', $code, $entry['id'] ) );
-			}
-
-			// Send emails directly (GF notifications unreliable with Square add-on).
-			$gc_data = array(
-				'code'            => $code,
-				'amount'          => $amount,
-				'purchaser_name'  => $purchaser_name,
-				'purchaser_email' => $purchaser_email,
-				'recipient_name'  => $recipient_name,
-				'recipient_email' => $recipient_email,
-				'message'         => $message,
+			$gift_cert_id = WTG_Gift_Certificate::create(
+				array(
+					'code'             => $code,
+					'gf_entry_id'      => $entry['id'],
+					'purchaser_name'   => $purchaser_name,
+					'purchaser_email'  => $purchaser_email,
+					'recipient_name'   => $recipient_name,
+					'recipient_email'  => $recipient_email,
+					'amount'           => $unit_price,
+					'message'          => $message,
+					'status'           => 'active',
+				)
 			);
-			WTG_Email_Templates::send_gift_certificate_purchaser( $gc_data );
-			WTG_Email_Templates::send_gift_certificate_recipient( $gc_data );
-			WTG_Email_Templates::send_admin_gc_notification( $gc_data );
+
+			if ( $gift_cert_id ) {
+				$codes[] = $code;
+			} else {
+				error_log( sprintf(
+					'WTG2: Failed to create gift certificate %d of %d for entry %d',
+					$i + 1,
+					$quantity,
+					$entry['id']
+				) );
+			}
 		}
+
+		if ( empty( $codes ) ) {
+			return;
+		}
+
+		// Store codes in entry meta. The single-code key is kept for the
+		// notification filter and any existing merge tags.
+		gform_update_meta( $entry['id'], 'wtg_gift_cert_code', $codes[0] );
+		gform_update_meta( $entry['id'], 'wtg_gift_cert_codes', implode( ', ', $codes ) );
+		gform_update_meta( $entry['id'], 'wtg_gift_cert_quantity', count( $codes ) );
+
+		error_log( sprintf(
+			'WTG2: %d gift certificate(s) created for entry %d at $%s each: %s',
+			count( $codes ),
+			$entry['id'],
+			number_format( $unit_price, 2 ),
+			implode( ', ', $codes )
+		) );
+
+		// Send emails directly (GF notifications unreliable with Square add-on).
+		$gc_data = array(
+			'code'            => $codes[0],
+			'codes'           => $codes,
+			'quantity'        => count( $codes ),
+			'amount'          => $unit_price,
+			'total_amount'    => $unit_price * count( $codes ),
+			'purchaser_name'  => $purchaser_name,
+			'purchaser_email' => $purchaser_email,
+			'recipient_name'  => $recipient_name,
+			'recipient_email' => $recipient_email,
+			'message'         => $message,
+		);
+		WTG_Email_Templates::send_gift_certificate_purchaser( $gc_data );
+		WTG_Email_Templates::send_gift_certificate_recipient( $gc_data );
+		WTG_Email_Templates::send_admin_gc_notification( $gc_data );
+	}
+
+	/**
+	 * Work out how many certificates were bought and what each one is worth.
+	 *
+	 * Handles both shapes the amount field has taken: a quantity-enabled
+	 * product (unit price x quantity) and the older radio product whose
+	 * choice label bakes the count in ("2 Person Tours - $357.22"). In the
+	 * radio case the purchase is treated as a single certificate for that
+	 * amount, preserving existing behaviour for those choices.
+	 *
+	 * @param array $entry The entry.
+	 * @param array $form  The form.
+	 * @return array {quantity, unit_price}
+	 */
+	private function get_gift_cert_purchase_details( $entry, $form ) {
+		$quantity   = 0;
+		$unit_price = 0.00;
+
+		if ( class_exists( 'GFCommon' ) ) {
+			$products = GFCommon::get_product_fields( $form, $entry );
+
+			if ( ! empty( $products['products'] ) ) {
+				foreach ( $products['products'] as $field_id => $product ) {
+					// Only the gift certificate amount field drives certificate count.
+					if ( (int) $field_id !== (int) self::FIELD_GC_AMOUNT ) {
+						continue;
+					}
+
+					$price = GFCommon::to_number( $product['price'] );
+					$qty   = isset( $product['quantity'] ) ? intval( $product['quantity'] ) : 1;
+
+					if ( $qty < 1 ) {
+						$qty = 1;
+					}
+
+					$unit_price = floatval( $price );
+					$quantity   = $qty;
+					break;
+				}
+			}
+		}
+
+		// Fallback: derive a single certificate from the recorded payment.
+		if ( $quantity < 1 || $unit_price <= 0 ) {
+			$paid = floatval( rgar( $entry, 'payment_amount' ) );
+			if ( $paid > 0 ) {
+				$quantity   = 1;
+				$unit_price = $paid;
+			}
+		}
+
+		// Safety cap — the form allows up to 10; refuse absurd quantities
+		// rather than generating hundreds of rows from a bad submission.
+		if ( $quantity > self::MAX_GIFT_CERT_QUANTITY ) {
+			error_log( sprintf(
+				'WTG2: Gift certificate quantity %d on entry %d exceeds cap of %d — clamping.',
+				$quantity,
+				$entry['id'],
+				self::MAX_GIFT_CERT_QUANTITY
+			) );
+			$quantity = self::MAX_GIFT_CERT_QUANTITY;
+		}
+
+		return array(
+			'quantity'   => $quantity,
+			'unit_price' => round( $unit_price, 2 ),
+		);
 	}
 
 	/**
