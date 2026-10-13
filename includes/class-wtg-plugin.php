@@ -183,79 +183,27 @@ class WTG_Plugin {
 	 * Process pending invoices (cron callback).
 	 *
 	 * Runs hourly. Publishes draft balance invoices 72 hours before tour date.
-	 * Draft invoices are created at booking time in Gravity Forms integration.
+	 * Draft invoices are normally created at booking time in the Gravity Forms
+	 * integration; if that failed, the invoice is created here and then published.
 	 */
 	public function process_pending_invoices() {
-		// Get hours before tour to send invoice.
-		$hours_before = get_option( 'wtg_invoice_hours_before', 72 );
+		$results = $this->send_due_invoices();
 
-		// Get bookings with draft invoices ready to publish.
-		$bookings = WTG_Booking::get_pending_invoices( $hours_before );
-
-		if ( empty( $bookings ) ) {
-			return;
-		}
-
-		error_log( sprintf( 'WTG2: Publishing %d pending invoice(s).', count( $bookings ) ) );
-
-		foreach ( $bookings as $booking ) {
-			$invoice_id = $booking['balance_square_id'];
-
-			// Publish the draft invoice — sends email to customer via Square.
-			$publish_result = WTG_Square_Invoice::publish_invoice( $invoice_id, $booking['id'] );
-
-			if ( $publish_result['success'] ) {
-				WTG_Booking::update( $booking['id'], array(
-					'invoice_sent_at' => current_time( 'mysql' ),
-					'invoice_url'     => $publish_result['invoice_url'],
-				) );
-
-				// Send our own balance invoice notification email.
-				WTG_Email_Templates::send_balance_invoice( $booking, $publish_result['invoice_url'] );
-
-				error_log( sprintf(
-					'WTG2: Balance invoice %s published for booking %d',
-					$invoice_id,
-					$booking['id']
-				) );
-			} else {
-				error_log( sprintf(
-					'WTG2: Failed to publish invoice %s for booking %d: %s',
-					$invoice_id,
-					$booking['id'],
-					$publish_result['error']
-				) );
-			}
+		if ( $results['sent'] > 0 || $results['failed'] > 0 ) {
+			error_log( sprintf( 'WTG2: Invoice cron — %d sent, %d failed.', $results['sent'], $results['failed'] ) );
 		}
 	}
 
 	/**
-	 * Ensure cron events are scheduled. Re-registers if missing.
-	 * Runs on every `init` so it self-heals after plugin updates or cron flushes.
-	 */
-	public function ensure_cron_scheduled() {
-		if ( ! wp_next_scheduled( 'wtg_send_pending_invoices' ) ) {
-			wp_schedule_event( time(), 'hourly', 'wtg_send_pending_invoices' );
-		}
-		if ( ! wp_next_scheduled( 'wtg_send_sms_reminders' ) ) {
-			wp_schedule_event( time(), 'hourly', 'wtg_send_sms_reminders' );
-		}
-	}
-
-	/**
-	 * Admin AJAX: send invoices for upcoming tours within the configured window.
+	 * Send balance invoices for tours within the configured window.
 	 *
 	 * Handles two cases:
 	 * 1. Bookings with an existing Square draft (publish it).
 	 * 2. Bookings with no Square invoice at all (create it, then publish it).
+	 *
+	 * @return array ['sent' => int, 'failed' => int, 'errors' => string[]]
 	 */
-	public function ajax_admin_send_all_invoices() {
-		check_ajax_referer( 'wtg_admin_send_all_invoices', 'nonce' );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => 'Unauthorized.' ) );
-		}
-
+	private function send_due_invoices() {
 		$hours_before = get_option( 'wtg_invoice_hours_before', 72 );
 		$sent         = 0;
 		$failed       = 0;
@@ -275,7 +223,7 @@ class WTG_Plugin {
 			} else {
 				$failed++;
 				$errors[] = sprintf( 'Booking #%d (%s) publish failed: %s', $booking['id'], $booking['email'], $result['error'] );
-				error_log( sprintf( 'WTG2: Manual publish failed for booking %d: %s', $booking['id'], $result['error'] ) );
+				error_log( sprintf( 'WTG2: Invoice publish failed for booking %d: %s', $booking['id'], $result['error'] ) );
 			}
 		}
 
@@ -307,6 +255,45 @@ class WTG_Plugin {
 				error_log( sprintf( 'WTG2: Invoice publish failed for booking %d: %s', $booking['id'], $publish_result['error'] ) );
 			}
 		}
+
+		return array(
+			'sent'   => $sent,
+			'failed' => $failed,
+			'errors' => $errors,
+		);
+	}
+
+	/**
+	 * Ensure cron events are scheduled. Re-registers if missing.
+	 * Runs on every `init` so it self-heals after plugin updates or cron flushes.
+	 */
+	public function ensure_cron_scheduled() {
+		if ( ! wp_next_scheduled( 'wtg_send_pending_invoices' ) ) {
+			wp_schedule_event( time(), 'hourly', 'wtg_send_pending_invoices' );
+		}
+		if ( ! wp_next_scheduled( 'wtg_send_sms_reminders' ) ) {
+			wp_schedule_event( time(), 'hourly', 'wtg_send_sms_reminders' );
+		}
+	}
+
+	/**
+	 * Admin AJAX: send invoices for upcoming tours within the configured window.
+	 *
+	 * Handles two cases:
+	 * 1. Bookings with an existing Square draft (publish it).
+	 * 2. Bookings with no Square invoice at all (create it, then publish it).
+	 */
+	public function ajax_admin_send_all_invoices() {
+		check_ajax_referer( 'wtg_admin_send_all_invoices', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Unauthorized.' ) );
+		}
+
+		$results = $this->send_due_invoices();
+		$sent    = $results['sent'];
+		$failed  = $results['failed'];
+		$errors  = $results['errors'];
 
 		if ( $sent === 0 && $failed === 0 ) {
 			wp_send_json_success( array( 'message' => 'No pending invoices found.', 'count' => 0 ) );
