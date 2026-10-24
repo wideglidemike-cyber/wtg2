@@ -168,7 +168,7 @@ class WTG_Admin_Dashboard {
 		$capacity = WTG_Availability_Controller::get_capacity();
 
 		// Get next 10 unique tour dates.
-		$today = date( 'Y-m-d' );
+		$today = current_time( 'Y-m-d' );
 		$dates = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT DISTINCT tour_date

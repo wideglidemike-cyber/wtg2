@@ -24,7 +24,7 @@ class WTG_Date_Picker_Controller {
 	 */
 	public static function get_upcoming_weekends( $count = 12 ) {
 		$weekends = array();
-		$current_date = strtotime( 'today' );
+		$current_date = strtotime( current_time( 'Y-m-d' ) );
 
 		// Find the next Friday
 		$day_of_week = date( 'N', $current_date ); // 1 = Monday, 7 = Sunday
@@ -33,8 +33,12 @@ class WTG_Date_Picker_Controller {
 			// Today is Monday-Friday, get next Friday
 			$days_until_friday = 5 - $day_of_week;
 			$next_friday = strtotime( "+{$days_until_friday} days", $current_date );
+		} elseif ( 6 == $day_of_week ) {
+			// Today is Saturday, keep this weekend so same-day booking works.
+			// The already-past Friday is filtered out in get_date_options().
+			$next_friday = strtotime( '-1 day', $current_date );
 		} else {
-			// Today is Saturday or Sunday, get next week's Friday
+			// Today is Sunday, get next week's Friday
 			$days_until_friday = ( 7 - $day_of_week ) + 5;
 			$next_friday = strtotime( "+{$days_until_friday} days", $current_date );
 		}
@@ -71,6 +75,7 @@ class WTG_Date_Picker_Controller {
 		$weekends = self::get_upcoming_weekends( $count );
 		$options  = array();
 		$capacity = WTG_Availability_Controller::get_capacity();
+		$today    = current_time( 'Y-m-d' );
 
 		foreach ( $weekends as $weekend ) {
 			$sat = $weekend['saturday'];
@@ -82,7 +87,7 @@ class WTG_Date_Picker_Controller {
 			$sat_pm_full = ( WTG_Booking::count_tickets_sold( $sat, 'sat_pm' ) >= $capacity )
 				|| WTG_Date_Override::is_slot_full( $sat, 'sat_pm' );
 
-			if ( $sat_am_full && $sat_pm_full ) {
+			if ( $sat_am_full && $sat_pm_full && $weekend['friday'] >= $today ) {
 				$options[] = array(
 					'value' => $weekend['friday'],
 					'label' => $weekend['friday_label'],

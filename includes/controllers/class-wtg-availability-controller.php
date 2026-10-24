@@ -64,7 +64,7 @@ class WTG_Availability_Controller {
 		$tour_date = self::get_slot_date( $tour_date, $time_slot );
 
 		// Check if date is in the past.
-		if ( strtotime( $tour_date ) < strtotime( 'today' ) ) {
+		if ( strtotime( $tour_date ) < strtotime( current_time( 'Y-m-d' ) ) ) {
 			return array(
 				'available' => false,
 				'reason'    => 'Tour date has passed.',
